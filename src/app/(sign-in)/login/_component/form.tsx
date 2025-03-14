@@ -1,7 +1,7 @@
 // app/login/page.tsx
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, Suspense } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -19,7 +19,8 @@ interface LoginResponse {
   message: string;
 }
 
-function FormLogin() {
+// Create a separate component to handle useSearchParams
+function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loginResponse, setLoginResponse] = useState<LoginResponse | null>(null);
@@ -133,6 +134,15 @@ function FormLogin() {
         </div>
       )}
     </div>
+  );
+}
+
+// Main component with Suspense boundary
+function FormLogin() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }
 
