@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import axios from 'axios';
 import { useAuth } from '@/utils/auth';
+import StatisticsTab from '../../_components/statistics-tab';
+import AlarmTab from '../../_components/alarms-tab';
 import CellVoltageChart from '../../_components/cell-voltage-chart';
 import CellTemperatureChart from '../../_components/cell-temperature-chart';
 
@@ -201,100 +203,122 @@ export default function BatteryDetailsPage() {
         ))}
       </div>
 
-      {/* Main content - SOC circle */}
-      <div className="flex flex-col items-center justify-center py-8">
-        <div className="relative w-56 h-56">
-          {/* Outer circle */}
-          <div className="absolute inset-0 rounded-full border-8 border-blue-300 opacity-30"></div>
-          
-          {/* Middle circle */}
-          <div className="absolute inset-4 rounded-full border-8 border-blue-200 opacity-50"></div>
-          
-          {/* Inner circle with SOC value */}
-          <div className="absolute inset-8 rounded-full border-8 border-white flex items-center justify-center flex-col">
-            <span className="text-5xl font-bold text-white">{formatNumber(socValue, 0)}%</span>
-            <span className="text-lg text-white">SOC</span>
+      {/* Tab content - conditionally render based on activeTab */}
+      {activeTab === 'RT Status' && (
+        <>
+          {/* Main content - SOC circle */}
+          <div className="flex flex-col items-center justify-center py-8">
+            <div className="relative w-56 h-56">
+              {/* Outer circle */}
+              <div className="absolute inset-0 rounded-full border-8 border-blue-300 opacity-30"></div>
+              
+              {/* Middle circle */}
+              <div className="absolute inset-4 rounded-full border-8 border-blue-200 opacity-50"></div>
+              
+              {/* Inner circle with SOC value */}
+              <div className="absolute inset-8 rounded-full border-8 border-white flex items-center justify-center flex-col">
+                <span className="text-5xl font-bold text-white">{formatNumber(socValue, 0)}%</span>
+                <span className="text-lg text-white">SOC</span>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
 
-      {/* Voltage and Current */}
-      <div className="flex justify-around py-5 px-4 text-white border-b border-blue-300">
-        <div className="text-center">
-          <p className="text-2xl font-bold">{formatNumber(batteryDetail.batt_volt || batteryDetail.rated_voltage)} V</p>
-          <p className="text-sm">Voltage</p>
-        </div>
-        <div className="h-full w-px bg-white/30"></div>
-        <div className="text-center">
-          <p className="text-2xl font-bold">{formatNumber(batteryDetail.batt_cur || 0)} A</p>
-          <p className="text-sm">Current</p>
-        </div>
-      </div>
+          {/* Voltage and Current */}
+          <div className="flex justify-around py-5 px-4 text-white border-b border-blue-300">
+            <div className="text-center">
+              <p className="text-2xl font-bold">{formatNumber(batteryDetail.batt_volt || batteryDetail.rated_voltage)} V</p>
+              <p className="text-sm">Voltage</p>
+            </div>
+            <div className="h-full w-px bg-white/30"></div>
+            <div className="text-center">
+              <p className="text-2xl font-bold">{formatNumber(batteryDetail.batt_cur || 0)} A</p>
+              <p className="text-sm">Current</p>
+            </div>
+          </div>
 
-      {/* System Information */}
-      <div className="bg-white rounded-t-3xl mt-3 px-4 py-4 min-h-[40vh]">
-        <h2 className="text-xl font-bold text-gray-800 mb-3">System Information</h2>
-        
-        {/* Alarm and Insulation tabs */}
-        <div className="flex mb-3 border-b border-gray-200">
-          <button className="flex-1 py-2 text-sm text-gray-700 font-medium border-b-2 border-gray-300">
-            Real-time Alarm
-          </button>
-          <button className="flex-1 py-2 text-sm text-orange-500 font-medium">
-            Insulation
-          </button>
+          {/* System Information */}
+          <div className="bg-white rounded-t-3xl mt-3 px-4 py-4 min-h-[40vh]">
+            <h2 className="text-xl font-bold text-gray-800 mb-3">System Information</h2>
+            
+            {/* Alarm and Insulation tabs */}
+            <div className="flex mb-3 border-b border-gray-200">
+              <button className="flex-1 py-2 text-sm text-gray-700 font-medium border-b-2 border-gray-300">
+                Real-time Alarm
+              </button>
+              <button className="flex-1 py-2 text-sm text-orange-500 font-medium">
+                Insulation
+              </button>
+            </div>
+            
+            {/* System Information items */}
+            <div className="divide-y divide-gray-100">
+              <div className="flex justify-between py-3">
+                <span className="text-gray-700 text-sm font-medium">SOC</span>
+                <span className="text-gray-600 text-sm">{formatNumber(socValue, 1)}%</span>
+              </div>
+              <div className="flex justify-between py-3">
+                <span className="text-gray-700 text-sm font-medium">SOH</span>
+                <span className="text-gray-600 text-sm">{formatNumber(sohValue, 1)}%</span>
+              </div>
+              <div className="flex justify-between py-3">
+                <span className="text-gray-700 text-sm font-medium">Average Voltage</span>
+                <span className="text-gray-600 text-sm">{formatNumber(batteryDetail.rated_voltage / (batteryDetail.cell_configuration ? parseInt(batteryDetail.cell_configuration.split('S')[0]) : 16), 2)} V</span>
+              </div>
+              <div className="flex justify-between py-3">
+                <span className="text-gray-700 text-sm font-medium">Average Temperature</span>
+                <span className="text-gray-600 text-sm">{formatNumber(batteryDetail.max_cell_temp || 39.25, 2)}°C</span>
+              </div>
+              <div className="flex justify-between py-3">
+                <span className="text-gray-700 text-sm font-medium">Cell Configuration</span>
+                <span className="text-gray-600 text-sm">{batteryDetail.cell_configuration || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-3">
+                <span className="text-gray-700 text-sm font-medium">BMS Type</span>
+                <span className="text-gray-600 text-sm">{batteryDetail.bms_type || 'N/A'}</span>
+              </div>
+              <div className="flex justify-between py-3">
+                <span className="text-gray-700 text-sm font-medium">Total Discharge</span>
+                <span className="text-gray-600 text-sm">{formatNumber(Math.abs(batteryDetail.total_discharge_ah), 1)} Ah</span>
+              </div>
+              <div className="flex justify-between py-3">
+                <span className="text-gray-700 text-sm font-medium">Total Charge</span>
+                <span className="text-gray-600 text-sm">{formatNumber(batteryDetail.total_charge_ah, 1)} Ah</span>
+              </div>
+              <div className="flex justify-between py-3">
+                <span className="text-gray-700 text-sm font-medium">Discharge Hours</span>
+                <span className="text-gray-600 text-sm">{formatNumber(batteryDetail.discharge_working_hours, 1)} h</span>
+              </div>
+              <div className="flex justify-between py-3">
+                <span className="text-gray-700 text-sm font-medium">Charge Hours</span>
+                <span className="text-gray-600 text-sm">{formatNumber(batteryDetail.charge_working_hours, 1)} h</span>
+              </div>
+              <div className="flex justify-between py-3">
+                <span className="text-gray-700 text-sm font-medium">Idle Hours</span>
+                <span className="text-gray-600 text-sm">{formatNumber(batteryDetail.idle_working_hours, 1)} h</span>
+              </div>
+            </div>
+            <CellVoltageChart packageName={packageName} />
+            <CellTemperatureChart packageName={packageName} />
+          </div>
+        </>
+      )}
+
+      {/* Statistics Tab */}
+      {activeTab === 'Statistics' && (
+        <StatisticsTab packageName={packageName} />
+      )}
+
+      {/* Alarms Tab */}
+      {activeTab === 'Alarms' && (        
+        <AlarmTab packageName={packageName} />
+      )}
+
+      {/* Upgrades Tab */}
+      {activeTab === 'Upgrades' && (
+        <div className="flex justify-center items-center h-64 bg-white mt-3 rounded-t-3xl">
+          <p className="text-gray-500">Upgrades functionality coming soon</p>
         </div>
-        
-        {/* System Information items */}
-        <div className="divide-y divide-gray-100">
-          <div className="flex justify-between py-3">
-            <span className="text-gray-700 text-sm font-medium">SOC</span>
-            <span className="text-gray-600 text-sm">{formatNumber(socValue, 1)}%</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-gray-700 text-sm font-medium">SOH</span>
-            <span className="text-gray-600 text-sm">{formatNumber(sohValue, 1)}%</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-gray-700 text-sm font-medium">Average Voltage</span>
-            <span className="text-gray-600 text-sm">{formatNumber(batteryDetail.rated_voltage / (batteryDetail.cell_configuration ? parseInt(batteryDetail.cell_configuration.split('S')[0]) : 16), 2)} V</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-gray-700 text-sm font-medium">Average Temperature</span>
-            <span className="text-gray-600 text-sm">{formatNumber(batteryDetail.max_cell_temp || 39.25, 2)}°C</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-gray-700 text-sm font-medium">Cell Configuration</span>
-            <span className="text-gray-600 text-sm">{batteryDetail.cell_configuration || 'N/A'}</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-gray-700 text-sm font-medium">BMS Type</span>
-            <span className="text-gray-600 text-sm">{batteryDetail.bms_type || 'N/A'}</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-gray-700 text-sm font-medium">Total Discharge</span>
-            <span className="text-gray-600 text-sm">{formatNumber(Math.abs(batteryDetail.total_discharge_ah), 1)} Ah</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-gray-700 text-sm font-medium">Total Charge</span>
-            <span className="text-gray-600 text-sm">{formatNumber(batteryDetail.total_charge_ah, 1)} Ah</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-gray-700 text-sm font-medium">Discharge Hours</span>
-            <span className="text-gray-600 text-sm">{formatNumber(batteryDetail.discharge_working_hours, 1)} h</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-gray-700 text-sm font-medium">Charge Hours</span>
-            <span className="text-gray-600 text-sm">{formatNumber(batteryDetail.charge_working_hours, 1)} h</span>
-          </div>
-          <div className="flex justify-between py-3">
-            <span className="text-gray-700 text-sm font-medium">Idle Hours</span>
-            <span className="text-gray-600 text-sm">{formatNumber(batteryDetail.idle_working_hours, 1)} h</span>
-          </div>
-        </div>
-        <CellVoltageChart packageName={packageName} />
-        <CellTemperatureChart packageName={packageName} />
-      </div>
+      )}
     </div>
   );
 }
