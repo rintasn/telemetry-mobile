@@ -5,6 +5,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import axios from 'axios';
 import { Html5Qrcode } from 'html5-qrcode';
 
@@ -17,6 +19,7 @@ interface QRScannerProps {
 const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
   const [facingMode, setFacingMode] = useState<'environment' | 'user'>('environment');
   const [scanResult, setScanResult] = useState<string | null>(null);
+  const [manualInput, setManualInput] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [cameraStarted, setCameraStarted] = useState(false);
@@ -27,6 +30,12 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
   // Initialize scanner when dialog opens
   useEffect(() => {
     if (open) {
+      // Reset state when dialog opens
+      setScanResult(null);
+      setManualInput('');
+      setError(null);
+      setLoading(false);
+      
       // Small delay to ensure DOM is ready
       const timer = setTimeout(() => {
         initializeScanner();
@@ -48,14 +57,16 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
       scannerRef.current.stop()
         .then(() => {
           setCameraStarted(false);
-          startScanner();
+          setTimeout(() => {
+            startScanner();
+          }, 300);
         })
         .catch(err => {
           console.error("Failed to stop camera:", err);
           setError("Failed to switch camera. Please try again.");
         });
     }
-  }, [facingMode]);
+  }, [facingMode, open]);
 
   const initializeScanner = () => {
     // Clean up any existing instance
@@ -132,8 +143,11 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   };
 
-  const bindBattery = async () => {
-    if (!scanResult) return;
+  const bindBattery = async (packageId: string) => {
+    if (!packageId) {
+      setError("Package ID is required");
+      return;
+    }
     
     setLoading(true);
     setError(null);
@@ -151,19 +165,28 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
         throw new Error('Authentication token not found. Please log in again.');
       }
       
-      // Create form data
-      const formData = new FormData();
-      formData.append('package_name', scanResult);
-      formData.append('id_user', userId);
-      formData.append('status_binding', '1'); // Active binding
+      // Parse userId to match bigint in database
+      const numericUserId = parseInt(userId);
+      if (isNaN(numericUserId)) {
+        throw new Error('Invalid user ID. Please log in again.');
+      }
       
-      // Send POST request
+      // Use URLSearchParams to match exact form format expected by your API
+      const urlEncodedData = new URLSearchParams();
+      urlEncodedData.append('package_name', packageId.trim());
+      urlEncodedData.append('id_user', numericUserId.toString());
+      urlEncodedData.append('status_binding', '1'); // smallint in DB
+      
+      console.log('Sending form data:', Object.fromEntries(urlEncodedData));
+      
+      // Send data in x-www-form-urlencoded format (matching r.ParseForm() in Go)
       const response = await axios.post(
         'https://portal4.incoe.astra.co.id:4433/api/add_binding_battery',
-        formData,
+        urlEncodedData,
         {
           headers: {
             'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
           },
         }
       );
@@ -184,16 +207,28 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
     }
   };
 
+  const handleSubmitManual = (e: React.FormEvent) => {
+    e.preventDefault();
+    bindBattery(manualInput);
+  };
+
   const resetScan = () => {
     setScanResult(null);
     initializeScanner();
   };
 
+  // This function specifically handles dialog closing to prevent unintended closures
+  const handleDialogChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      onClose();
+    }
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={handleDialogChange}>
+      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
         <DialogHeader>
-          <DialogTitle>Scan QR Code to Bind Battery</DialogTitle>
+          <DialogTitle>Bind Battery</DialogTitle>
         </DialogHeader>
         
         {error && (
@@ -202,76 +237,108 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
           </Alert>
         )}
         
-        <div className="flex flex-col items-center space-y-4">
-          {!scanResult ? (
-            <>
-              <div className="w-full overflow-hidden rounded-lg border border-gray-200">
-                {/* Scanner container */}
-                <div 
-                  id={scannerContainerId} 
-                  style={{ width: '100%', minHeight: '300px', position: 'relative' }} 
-                />
-                
-                {!cameraStarted && !error && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75">
-                    <p>Starting camera...</p>
+        <div className="mt-4 space-y-6">
+          {/* QR Scanner Section */}
+          <div className="space-y-2">
+            <h3 className="font-medium text-sm">Scan QR Code</h3>
+            <div className="flex flex-col items-center space-y-4">
+              {!scanResult ? (
+                <>
+                  <div className="w-full overflow-hidden rounded-lg border border-gray-200">
+                    {/* Scanner container */}
+                    <div 
+                      id={scannerContainerId} 
+                      style={{ width: '100%', minHeight: '250px', position: 'relative' }} 
+                    />
+                    
+                    {!cameraStarted && !error && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75">
+                        <p>Starting camera...</p>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              
-              <div className="flex space-x-2">
-                <Button 
-                  variant="outline" 
-                  onClick={toggleCamera}
-                  className="flex items-center space-x-1"
-                  disabled={!cameraStarted}
-                >
-                  <span>Switch Camera</span>
-                  <span>{facingMode === 'environment' ? '📷' : '🤳'}</span>
-                </Button>
-                
-                {error && (
-                  <Button 
-                    onClick={initializeScanner}
-                    className="flex items-center space-x-1"
-                  >
-                    Retry Camera
-                  </Button>
-                )}
-              </div>
-              
-              <p className="text-sm text-gray-500 text-center">
-                Position the QR code within the frame to scan
-              </p>
-            </>
-          ) : (
-            <div className="w-full p-4 border rounded-lg bg-gray-50">
-              <h3 className="font-medium mb-2">Scanned Package ID:</h3>
-              <code className="block p-2 bg-white border rounded mb-4 overflow-x-auto">
-                {scanResult}
-              </code>
-              
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={resetScan} disabled={loading}>
-                  Scan Again
-                </Button>
-                <Button onClick={bindBattery} disabled={loading}>
-                  {loading ? 'Binding...' : 'Bind Battery'}
-                </Button>
-              </div>
+                  
+                  <div className="flex space-x-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={toggleCamera}
+                      className="flex items-center space-x-1"
+                      disabled={!cameraStarted}
+                    >
+                      <span>Switch Camera</span>
+                      <span>{facingMode === 'environment' ? '📷' : '🤳'}</span>
+                    </Button>
+                    
+                    {error && (
+                      <Button 
+                        onClick={initializeScanner}
+                        className="flex items-center space-x-1"
+                      >
+                        Retry Camera
+                      </Button>
+                    )}
+                  </div>
+                  
+                  <p className="text-xs text-gray-500 text-center">
+                    Position the QR code within the frame to scan
+                  </p>
+                </>
+              ) : (
+                <div className="w-full p-4 border rounded-lg bg-gray-50">
+                  <h3 className="font-medium mb-2">Scanned Package ID:</h3>
+                  <code className="block p-2 bg-white border rounded mb-4 overflow-x-auto">
+                    {scanResult}
+                  </code>
+                  
+                  <div className="flex justify-between">
+                    <Button variant="outline" onClick={resetScan} disabled={loading}>
+                      Scan Again
+                    </Button>
+                    <Button onClick={() => bindBattery(scanResult)} disabled={loading}>
+                      {loading ? 'Binding...' : 'Bind Battery'}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+
+          {/* Manual Input Section */}
+          <div className="space-y-2 pt-2 border-t">
+            <h3 className="font-medium text-sm">Manual Input</h3>
+            <form onSubmit={handleSubmitManual} className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="packageId">Package ID</Label>
+                <Input 
+                  id="packageId"
+                  value={manualInput}
+                  onChange={(e) => setManualInput(e.target.value)}
+                  placeholder="Enter package ID manually"
+                  required
+                />
+                <p className="text-xs text-gray-500">
+                  Enter the battery package ID exactly as it appears on the package
+                </p>
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={loading || !manualInput.trim()}
+              >
+                {loading ? 'Binding...' : 'Bind Battery'}
+              </Button>
+            </form>
+          </div>
         </div>
         
         <DialogFooter className="flex justify-between sm:justify-between">
           <Button variant="outline" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          {scanResult && (
-            <p className="text-xs text-gray-500">
-              Make sure the package ID is correct before binding
-            </p>
-          )}
+          <p className="text-xs text-gray-500">
+            Make sure the package ID is correct before binding
+          </p>
         </DialogFooter>
       </DialogContent>
     </Dialog>
