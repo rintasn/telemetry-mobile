@@ -1,8 +1,12 @@
 // _components/battery-list.tsx
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import FilterDialog from './filter-dialog';
+import { Card, CardContent } from "@/components/ui/card";
 import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
+
+// FilterDialog Component
+import FilterDialog from './filter-dialog';
 
 // Define the battery data structure
 interface BatteryData {
@@ -55,91 +59,66 @@ type SortOption = {
 type ActivityFilter = 'all' | 'active' | 'inactive';
 
 const BatteryList: React.FC<BatteryListProps> = ({ batteries }) => {
-  // State for expanded battery details
-  const [expandedBattery, setExpandedBattery] = useState<string | null>(null);
   const router = useRouter();
-  
-  // State for filter dialog
-  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
-  
-  // State for search and filters
   const [searchTerm, setSearchTerm] = useState('');
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
-  const [sortOption, setSortOption] = useState<SortOption>({ 
-    value: 'updated_at_desc', 
-    label: 'Last Updated (Newest)', 
-    direction: 'desc' 
+  const [sortOption, setSortOption] = useState<SortOption>({
+    value: 'package_name',
+    label: 'Name (A-Z)',
+    direction: 'asc'
   });
+  const [isFilterDialogOpen, setIsFilterDialogOpen] = useState(false);
+  const [expandedBatteryId, setExpandedBatteryId] = useState<string | null>(null);
   
-  // Filtered and sorted data
-  const [filteredBatteries, setFilteredBatteries] = useState<BatteryData[]>(batteries);
-
-  // Function to check if a battery is active (updated within last 3 days)
-  const isBatteryActive = (battery: BatteryData): boolean => {
-    const updateDate = new Date(battery.updated_at);
-    const currentDate = new Date();
-    const threeDaysAgo = new Date();
-    threeDaysAgo.setDate(currentDate.getDate() - 3);
-    
-    return updateDate >= threeDaysAgo;
-  };
-
-  // Apply filters and sorting when dependencies change
-  useEffect(() => {
-    let result = [...batteries];
-    
-    // Apply search filter
-    if (searchTerm) {
-      const lowercaseSearch = searchTerm.toLowerCase();
-      result = result.filter(
-        battery => 
-          battery.package_name.toLowerCase().includes(lowercaseSearch) ||
-          battery.serial_number.toLowerCase().includes(lowercaseSearch)
-      );
-    }
-    
-    // Apply activity filter
-    if (activityFilter !== 'all') {
-      result = result.filter(battery => {
-        const active = isBatteryActive(battery);
-        return activityFilter === 'active' ? active : !active;
-      });
-    }
-    
-    // Apply sorting
-    const [field, direction] = sortOption.value.split('_');
-    if (field) {
-      result.sort((a, b) => {
-        // Get values based on field
-        let valueA, valueB;
+  // Define sort options
+  const sortOptions: SortOption[] = [
+    { value: 'package_name', label: 'Name (A-Z)', direction: 'asc' },
+    { value: 'package_name', label: 'Name (Z-A)', direction: 'desc' },
+    { value: 'updated_at', label: 'Recently Updated', direction: 'desc' },
+    { value: 'soc', label: 'Charge Level (High-Low)', direction: 'desc' },
+    { value: 'soc', label: 'Charge Level (Low-High)', direction: 'asc' }
+  ];
+  
+  // Filter and sort batteries
+  const filteredBatteries = batteries
+    .filter(battery => {
+      // Search filter
+      const matchesSearch = searchTerm === '' || 
+        battery.package_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        battery.manufacturer.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        battery.serial_number.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Activity filter
+      const batteryActive = battery.status_binding === '1';
+      const matchesActivity = 
+        activityFilter === 'all' || 
+        (activityFilter === 'active' && batteryActive) || 
+        (activityFilter === 'inactive' && !batteryActive);
         
-        if (field === 'updated_at') {
-          valueA = new Date(a.updated_at).getTime();
-          valueB = new Date(b.updated_at).getTime();
-        } else if (field === 'soc') {
-          valueA = parseFloat(a.soc) || 0;
-          valueB = parseFloat(b.soc) || 0;
-        } else if (field === 'package_name') {
-          valueA = a.package_name.toLowerCase();
-          valueB = b.package_name.toLowerCase();
-          return direction === 'asc' 
-            ? valueA.localeCompare(valueB) 
-            : valueB.localeCompare(valueA);
-        }
-        
-        // Compare values
-        if (direction === 'asc') {
-          return (valueA as number) - (valueB as number);
-        } else {
-          return (valueB as number) - (valueA as number);
-        }
-      });
-    }
-    
-    setFilteredBatteries(result);
-  }, [batteries, searchTerm, activityFilter, sortOption]);
-
-  // Handle applying filters from dialog
+      return matchesSearch && matchesActivity;
+    })
+    .sort((a, b) => {
+      const key = sortOption.value as keyof BatteryData;
+      const direction = sortOption.direction === 'asc' ? 1 : -1;
+      
+      const aValue = a[key] || '';
+      const bValue = b[key] || '';
+      
+      // Handle numeric values
+      if (!isNaN(Number(aValue)) && !isNaN(Number(bValue))) {
+        return (Number(aValue) - Number(bValue)) * direction;
+      }
+      
+      // Handle date values for updated_at
+      if (key === 'updated_at') {
+        return (new Date(aValue).getTime() - new Date(bValue).getTime()) * direction;
+      }
+      
+      // Default string comparison
+      return aValue.localeCompare(bValue) * direction;
+    });
+  
+  // Handle applying filters from the dialog
   const handleApplyFilters = (filters: {
     searchTerm: string;
     activityFilter: ActivityFilter;
@@ -148,31 +127,61 @@ const BatteryList: React.FC<BatteryListProps> = ({ batteries }) => {
     setSearchTerm(filters.searchTerm);
     setActivityFilter(filters.activityFilter);
     setSortOption(filters.sortOption);
+    setIsFilterDialogOpen(false);
   };
-
-  // Format date to a more readable format
-  const formatDate = (dateString: string) => {
+  
+  // Handle battery card click
+  const handleBatteryClick = (batteryId: string) => {
+    router.push(`/battery/${batteryId}`);
+  };
+  
+  // Handle expand details toggle
+  const handleExpandToggle = (event: React.MouseEvent, batteryId: string) => {
+    event.stopPropagation(); // Prevent card click from triggering
+    setExpandedBatteryId(expandedBatteryId === batteryId ? null : batteryId);
+  };
+  
+  // Calculate SOC percentage safely
+  const calculateSocPercentage = (socValue: string): number => {
+    const soc = parseFloat(socValue);
+    if (isNaN(soc)) return 0;
+    return Math.min(Math.max(soc, 0), 100);
+  };
+  
+  // Convert minutes to hours
+  const minutesToHours = (minutes: string): number => {
+    const mins = parseFloat(minutes);
+    if (isNaN(mins)) return 0;
+    return mins / 60; // Convert minutes to hours
+  };
+  
+  // Format date to local time
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return 'N/A';
+    
     try {
       const date = new Date(dateString);
-      return date.toLocaleString();
-    } catch (error) {
-      return dateString;
+      return new Intl.DateTimeFormat('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch {
+      return 'Invalid date';
     }
   };
 
-  // Toggle expanded state for a battery card
-  const toggleExpand = (serialNumber: string) => {
-    if (expandedBattery === serialNumber) {
-      setExpandedBattery(null);
-    } else {
-      setExpandedBattery(serialNumber);
-    }
-  };
-
-  // Format numeric values with specified decimals
-  const formatNumber = (value: string, decimals: number = 2) => {
-    const num = parseFloat(value);
-    return isNaN(num) ? '0' : num.toFixed(decimals);
+  // Get status color based on SOC
+  const getStatusColor = (socValue: string): string => {
+    const soc = parseFloat(socValue);
+    if (isNaN(soc)) return 'bg-gray-400';
+    
+    if (soc >= 75) return 'bg-green-500';
+    if (soc >= 40) return 'bg-yellow-500';
+    if (soc > 15) return 'bg-orange-500';
+    return 'bg-red-500';
   };
 
   return (
@@ -186,9 +195,9 @@ const BatteryList: React.FC<BatteryListProps> = ({ batteries }) => {
         <Button
           onClick={() => setIsFilterDialogOpen(true)}
           variant="outline"
-          className="flex items-center gap-2"
+          className="flex items-center gap-2 bg-white/20 backdrop-blur-md border-blue-200 hover:bg-blue-50 transition-all duration-300"
         >
-          <span>🔍</span>
+          <span className="text-blue-500">🔍</span>
           <span>Filter & Sort</span>
           {(searchTerm || activityFilter !== 'all') && (
             <span className="ml-1 bg-blue-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -208,164 +217,263 @@ const BatteryList: React.FC<BatteryListProps> = ({ batteries }) => {
           activityFilter,
           sortOption
         }}
+        sortOptions={sortOptions}
       />
       
       {/* Display no results message */}
       {filteredBatteries.length === 0 && (
-        <div className="bg-gray-50 p-8 rounded-lg text-center">
-          <p className="text-gray-500 font-medium">No batteries match your filters</p>
-          <p className="text-gray-400 text-sm mt-1">Try adjusting your search or filter criteria</p>
-          <Button 
-            onClick={() => {
-              setSearchTerm('');
-              setActivityFilter('all');
-              setSortOption({ 
-                value: 'updated_at_desc', 
-                label: 'Last Updated (Newest)', 
-                direction: 'desc' 
-              });
-            }}
-            className="mt-4 bg-blue-500"
-          >
-            Reset Filters
-          </Button>
+        <div className="p-8 text-center rounded-lg bg-blue-50 border border-blue-100">
+          <div className="text-6xl mb-4">🔋</div>
+          <h3 className="text-xl font-semibold text-gray-700 mb-2">No Batteries Found</h3>
+          <p className="text-gray-500 mb-4">
+            {searchTerm || activityFilter !== 'all' 
+              ? "Try adjusting your filters to see more results." 
+              : "No batteries have been bound to your account yet."}
+          </p>
+          {(searchTerm || activityFilter !== 'all') && (
+            <Button 
+              onClick={() => {
+                setSearchTerm('');
+                setActivityFilter('all');
+                setSortOption(sortOptions[0]);
+              }}
+              className="bg-blue-500 hover:bg-blue-600 transition-colors duration-300"
+            >
+              Clear Filters
+            </Button>
+          )}
         </div>
       )}
       
       {/* Battery cards grid */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {filteredBatteries.map((battery) => (
-          <div 
-            key={battery.serial_number} 
-            className={`bg-white p-4 rounded-lg border border-gray-100 hover:shadow-md transition-shadow ${
-              expandedBattery === battery.serial_number ? 'shadow-lg' : ''
-            } ${!isBatteryActive(battery) ? 'border-l-4 border-l-gray-400' : 'border-l-4 border-l-green-500'}`}
-          >
-            <div className="flex items-center mb-3">
-              <div className={`w-10 h-10 rounded-full flex items-center justify-center mr-3 ${
-                isBatteryActive(battery) ? 'bg-green-100 text-green-500' : 'bg-gray-100 text-gray-500'
-              }`}>
-                <span>🔋</span>
-              </div>
-              <div className="flex-1">
-                <h3 className="text-lg font-semibold text-gray-800">{battery.package_name}</h3>
-                <p className="text-sm text-gray-500">{battery.serial_number}</p>
-                <p className="text-xs text-gray-400">
-                  {isBatteryActive(battery) ? 
-                    <span className="text-green-500 font-medium">Active</span> : 
-                    <span className="text-gray-500">Inactive</span>
-                  }
-                </p>
-              </div>
-              <button 
-                onClick={() => toggleExpand(battery.serial_number)}
-                className="text-blue-500 hover:text-blue-700"
-              >
-                {expandedBattery === battery.serial_number ? '▲' : '▼'}
-              </button>
-            </div>
-            
-            {/* Battery live status */}
-            <div className="mb-4 grid grid-cols-2 gap-2 bg-blue-50 p-3 rounded">
-              <div className="text-center">
-                <div className="font-bold text-lg text-blue-700">
-                  {battery.soc === "0" ? "N/A" : `${formatNumber(battery.soc)}%`}
-                </div>
-                <div className="text-xs text-gray-600">State of Charge</div>
-              </div>
-              <div className="text-center">
-                <div className="font-bold text-lg text-blue-700">
-                  {battery.batt_volt === "0" ? "N/A" : `${formatNumber(battery.batt_volt)}V`}
-                </div>
-                <div className="text-xs text-gray-600">Voltage</div>
-              </div>
-              <div className="text-center col-span-2">
-                <div className="font-bold text-lg text-blue-700">
-                  {battery.batt_cur === "0" ? "N/A" : `${formatNumber(battery.batt_cur)}A`}
-                </div>
-                <div className="text-xs text-gray-600">Current</div>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-2 text-sm">
-              <div className="col-span-2 py-1 px-2 bg-gray-50 rounded">
-                <span className="font-medium text-gray-700">Manufacturer:</span> {battery.manufacturer}
-              </div>
-              <div className="py-1 px-2 bg-gray-50 rounded">
-                <span className="font-medium text-gray-700">Brand:</span> {battery.brand}
-              </div>
-              <div className="py-1 px-2 bg-gray-50 rounded">
-                <span className="font-medium text-gray-700">Status:</span> {
-                  battery.status_binding === "1" ? 
-                  <span className="text-green-500 font-medium">Connected</span> : 
-                  <span className="text-gray-500">Disconnected</span>
-                }
-              </div>
-              <div className="py-1 px-2 bg-gray-50 rounded">
-                <span className="font-medium text-gray-700">Voltage:</span> {battery.rated_voltage}V
-              </div>
-              <div className="py-1 px-2 bg-gray-50 rounded">
-                <span className="font-medium text-gray-700">Capacity:</span> {battery.rated_capacity}Ah
-              </div>
-              
-              {/* Additional visible info */}
-              <div className="py-1 px-2 bg-gray-50 rounded">
-                <span className="font-medium text-gray-700">SW Version:</span> {battery.software_version}
-              </div>
-              <div className="py-1 px-2 bg-gray-50 rounded">
-                <span className="font-medium text-gray-700">Cycles:</span> {battery.cycle_charge}
-              </div>
-              <div className="col-span-2 py-1 px-2 bg-gray-50 rounded">
-                <span className="font-medium text-gray-700">Last Updated:</span> {formatDate(battery.updated_at)}
-              </div>
-            </div>
-            
-            {/* Expanded info */}
-            {expandedBattery === battery.serial_number && (
-              <div className="mt-4 pt-4 border-t border-gray-100">
-                <h4 className="font-medium text-gray-700 mb-2">Battery Details</h4>
-                <div className="grid grid-cols-2 gap-2 text-sm">
-                  <div className="py-1 px-2 bg-gray-50 rounded">
-                    <span className="font-medium text-gray-700">Energy:</span> {battery.rated_energy}kWh
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {filteredBatteries.map((battery, index) => {
+          const socPercentage = calculateSocPercentage(battery.soc);
+          const isActive = battery.status_binding === '1';
+          
+          return (
+            <motion.div
+              key={`${battery.package_name}-${index}`}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: index * 0.05 }}
+              whileHover={{ scale: 1.02, boxShadow: "0 10px 30px rgba(0,0,0,0.15)" }}
+              className="cursor-pointer"
+              onClick={() => handleBatteryClick(battery.package_name)}
+            >
+              <Card className="overflow-hidden border-0 shadow-md bg-gradient-to-br from-white to-blue-50 rounded-2xl">
+                <div className="relative">
+                  {/* Status indicator */}
+                  <div className="absolute top-4 right-4 flex items-center">
+                    <div className={`w-3 h-3 rounded-full mr-2 ${isActive ? 'bg-green-500' : 'bg-gray-400'}`}></div>
+                    <span className="text-xs font-medium text-gray-600">{isActive ? 'Active' : 'Inactive'}</span>
                   </div>
-                  <div className="py-1 px-2 bg-gray-50 rounded">
-                    <span className="font-medium text-gray-700">Charge Cycles:</span> {battery.charging_cycle}
+                  
+                  {/* Battery image or icon */}
+                  <div className="flex justify-center pt-8 pb-2">
+                    <div className="relative w-32 h-16 bg-blue-900/10 rounded-xl flex items-center justify-center backdrop-blur-sm border border-blue-100">
+                      <div className="absolute w-4 h-8 bg-blue-900/10 -right-2 top-4 rounded-r-md"></div>
+                      <div className="w-28 h-12 rounded-md bg-gradient-to-r from-blue-400 to-blue-600 flex items-center justify-center">
+                        <span className="text-white font-medium">{battery.package_name}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="py-1 px-2 bg-gray-50 rounded">
-                    <span className="font-medium text-gray-700">Max Cell V:</span> {battery.max_cell_volt}V
-                  </div>
-                  <div className="py-1 px-2 bg-gray-50 rounded">
-                    <span className="font-medium text-gray-700">Min Cell V:</span> {battery.min_cell_volt}V
-                  </div>
-                  <div className="py-1 px-2 bg-gray-50 rounded">
-                    <span className="font-medium text-gray-700">Cell Temp:</span> {battery.max_cell_temp}°C
-                  </div>
-                  <div className="py-1 px-2 bg-gray-50 rounded">
-                    <span className="font-medium text-gray-700">Energy Wh:</span> {formatNumber(battery.batt_wh)}
-                  </div>
-                  <div className="py-1 px-2 bg-gray-50 rounded">
-                    <span className="font-medium text-gray-700">Discharge Hrs:</span> {formatNumber(battery.discharge_working_hours)}
-                  </div>
-                  <div className="py-1 px-2 bg-gray-50 rounded">
-                    <span className="font-medium text-gray-700">Charge Hrs:</span> {formatNumber(battery.charge_working_hours)}
-                  </div>
-                  <div className="py-1 px-2 bg-gray-50 rounded">
-                    <span className="font-medium text-gray-700">Idle Hrs:</span> {formatNumber(battery.idle_working_hours)}
+                  
+                  {/* Battery SOC Gauge - Futuristic circular gauge */}
+                  <div className="flex justify-center">
+                    <div className="relative w-24 h-24 mb-4">
+                      <svg className="w-24 h-24" viewBox="0 0 100 100">
+                        {/* Background track */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          stroke="#e5e7eb"
+                          strokeWidth="8"
+                          fill="none"
+                        />
+                        {/* Foreground progress */}
+                        <circle
+                          cx="50"
+                          cy="50"
+                          r="40"
+                          stroke={socPercentage > 15 ? (socPercentage > 40 ? (socPercentage > 75 ? "#22c55e" : "#eab308") : "#f97316") : "#ef4444"}
+                          strokeWidth="8"
+                          fill="none"
+                          strokeDasharray={`${2 * Math.PI * 40 * (socPercentage / 100)} ${2 * Math.PI * 40 * (1 - socPercentage / 100)}`}
+                          strokeDashoffset={2 * Math.PI * 40 * 0.25} // Start from the top
+                          strokeLinecap="round"
+                        />
+                        <text
+                          x="50"
+                          y="50"
+                          dominantBaseline="middle"
+                          textAnchor="middle"
+                          fontSize="20"
+                          fontWeight="bold"
+                          fill="#374151"
+                        >
+                          {socPercentage}%
+                        </text>
+                        <text
+                          x="50"
+                          y="65"
+                          dominantBaseline="middle"
+                          textAnchor="middle"
+                          fontSize="10"
+                          fill="#6b7280"
+                        >
+                          Charge
+                        </text>
+                      </svg>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
-            
-            <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end">
-              <button 
-                className="bg-blue-500 hover:bg-blue-600 text-white py-1 px-3 rounded text-sm transition-colors"
-                onClick={() => router.push(`/battery/${battery.package_name}`)}
-              >
-                View Details
-              </button>
-            </div>
-          </div>
-        ))}
+                
+                <CardContent className="px-6 pb-6">
+                  {/* Battery Details */}
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <h3 className="text-lg font-semibold text-gray-800">{battery.package_name}</h3>
+                      <p className="text-sm text-gray-500">{battery.brand || "Unknown Brand"}</p>
+                    </div>
+                    
+                    {/* Additional info row */}
+                    <div className="flex justify-between text-xs text-gray-500 px-1 mb-2">
+                      <div>
+                        <span className="mr-1">SN:</span>
+                        <span className="font-medium">{battery.serial_number || "N/A"}</span>
+                      </div>
+                      <div>
+                        <span className="mr-1">v</span>
+                        <span className="font-medium">{battery.software_version || "N/A"}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Battery real-time data */}
+                    <div className="flex justify-between px-1 mb-3 bg-blue-50/50 py-1 rounded-lg text-xs">
+                      <div className="flex items-center">
+                        <span className="text-blue-500 mr-1">⚡</span>
+                        <span>{parseFloat(battery.batt_volt || "0").toFixed(2)} V</span>
+                      </div>
+                      <div className="flex items-center">
+                        <span className="text-blue-500 mr-1">↯</span>
+                        <span>{parseFloat(battery.batt_cur || "0").toFixed(2)} A</span>
+                      </div>
+                    </div>
+                    {/* Battery specs with custom styling and expand toggle */}
+                    <div className="grid grid-cols-2 gap-4 relative">
+                      <div className="absolute -top-2 right-0">
+                        <button 
+                          onClick={(e) => handleExpandToggle(e, battery.package_name)}
+                          className="bg-blue-100 p-1 rounded-full hover:bg-blue-200 transition-colors duration-200 focus:outline-none"
+                          title="Show more details"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-blue-600" viewBox="0 0 20 20" fill="currentColor">
+                            {expandedBatteryId === battery.package_name ? (
+                              <path fillRule="evenodd" d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z" clipRule="evenodd" />
+                            ) : (
+                              <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                            )}
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                        <p className="text-xs text-blue-500 mb-1 font-medium">Voltage</p>
+                        <p className="text-sm font-semibold">{battery.rated_voltage || "N/A"} V</p>
+                      </div>
+                      <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                        <p className="text-xs text-blue-500 mb-1 font-medium">Capacity</p>
+                        <p className="text-sm font-semibold">{battery.rated_capacity || "N/A"} Ah</p>
+                      </div>
+                      <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                        <p className="text-xs text-blue-500 mb-1 font-medium">Charge Cycles</p>
+                        <p className="text-sm font-semibold">{battery.charging_cycle || "0"}</p>
+                      </div>
+                      <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                        <p className="text-xs text-blue-500 mb-1 font-medium">Last Update</p>
+                        <p className="text-xs font-semibold">{formatDate(battery.updated_at)}</p>
+                      </div>
+                      
+                      {/* Expanded details section */}
+                      {expandedBatteryId === battery.package_name && (
+                        <motion.div 
+                          className="col-span-2 mt-3 grid grid-cols-2 gap-4"
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.3 }}
+                        >
+                          <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                            <p className="text-xs text-blue-500 mb-1 font-medium">Software Version</p>
+                            <p className="text-sm font-semibold">{battery.software_version || "N/A"}</p>
+                          </div>
+                          <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                            <p className="text-xs text-blue-500 mb-1 font-medium">Brand</p>
+                            <p className="text-sm font-semibold">{battery.brand || "N/A"}</p>
+                          </div>
+                          <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                            <p className="text-xs text-blue-500 mb-1 font-medium">Working Hours</p>
+                            <p className="text-sm font-semibold">{minutesToHours(battery.working_hour_telemetri || "0").toFixed(1)} h</p>
+                          </div>
+                          <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                            <p className="text-xs text-blue-500 mb-1 font-medium">Charging Hours</p>
+                            <p className="text-sm font-semibold">{minutesToHours(battery.charge_working_hours || "0").toFixed(1)} h</p>
+                          </div>
+                          <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                            <p className="text-xs text-blue-500 mb-1 font-medium">Max Cell Volt</p>
+                            <p className="text-sm font-semibold">{battery.max_cell_volt || "N/A"} V (Cell {battery.max_cv_no || "N/A"})</p>
+                          </div>
+                          <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                            <p className="text-xs text-blue-500 mb-1 font-medium">Min Cell Volt</p>
+                            <p className="text-sm font-semibold">{battery.min_cell_volt || "N/A"} V (Cell {battery.min_cv_no || "N/A"})</p>
+                          </div>
+                          <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                            <p className="text-xs text-blue-500 mb-1 font-medium">Max Cell Temp</p>
+                            <p className="text-sm font-semibold">{battery.max_cell_temp || "N/A"} °C</p>
+                          </div>
+                          <div className="bg-white/60 backdrop-blur-sm p-3 rounded-xl border border-blue-100">
+                            <p className="text-xs text-blue-500 mb-1 font-medium">Current</p>
+                            <p className="text-sm font-semibold">{battery.batt_cur || "N/A"} A</p>
+                          </div>
+                        </motion.div>
+                      )}
+                    </div>
+                    
+                    {/* Working Hours bar - Visual indicator of usage */}
+                    <div className="pt-2">
+                      <div className="flex justify-between items-center mb-1">
+                        <p className="text-xs text-gray-500">Working Hours</p>
+                        <p className="text-xs font-medium">{minutesToHours(battery.working_hour_telemetri || "0").toFixed(1)} h</p>
+                      </div>
+                      <div className="h-2 w-full bg-gray-200 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-blue-400 to-blue-600 rounded-full"
+                          style={{ 
+                            width: `${Math.min((minutesToHours(battery.working_hour_telemetri || "0") / 10000) * 100, 100)}%` 
+                          }}
+                        ></div>
+                      </div>
+                      <div className="flex justify-between mt-1">
+                        <p className="text-xs text-gray-400">0h</p>
+                        <p className="text-xs text-gray-400">10,000h</p>
+                      </div>
+                    </div>
+                    
+                    {/* View details button */}
+                    <button className="w-full py-2 bg-gradient-to-r from-blue-400 to-blue-600 text-white rounded-xl hover:opacity-90 transition-opacity font-medium text-sm flex items-center justify-center gap-2 mt-2">
+                      <span>View Details</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );

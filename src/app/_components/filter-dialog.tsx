@@ -1,11 +1,23 @@
 // _components/filter-dialog.tsx
-"use client";
-
-import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import React, { useState, useEffect } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 // Sort type for the dropdown
 type SortOption = {
@@ -30,129 +42,142 @@ interface FilterDialogProps {
     activityFilter: ActivityFilter;
     sortOption: SortOption;
   };
+  sortOptions: SortOption[];
 }
 
-const FilterDialog: React.FC<FilterDialogProps> = ({ 
-  open, 
-  onClose, 
+const FilterDialog: React.FC<FilterDialogProps> = ({
+  open,
+  onClose,
   onApplyFilters,
-  initialFilters 
+  initialFilters,
+  sortOptions
 }) => {
-  // Local state for filters
   const [searchTerm, setSearchTerm] = useState(initialFilters.searchTerm);
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>(initialFilters.activityFilter);
   const [sortOption, setSortOption] = useState<SortOption>(initialFilters.sortOption);
 
-  // Sort options
-  const sortOptions: SortOption[] = [
-    { value: 'updated_at_desc', label: 'Last Updated (Newest)', direction: 'desc' },
-    { value: 'updated_at_asc', label: 'Last Updated (Oldest)', direction: 'asc' },
-    { value: 'soc_desc', label: 'State of Charge (High-Low)', direction: 'desc' },
-    { value: 'soc_asc', label: 'State of Charge (Low-High)', direction: 'asc' },
-    { value: 'package_name_asc', label: 'Package Name (A-Z)', direction: 'asc' },
-    { value: 'package_name_desc', label: 'Package Name (Z-A)', direction: 'desc' },
-  ];
+  // Reset filters when dialog opens with initial values
+  useEffect(() => {
+    if (open) {
+      setSearchTerm(initialFilters.searchTerm);
+      setActivityFilter(initialFilters.activityFilter);
+      setSortOption(initialFilters.sortOption);
+    }
+  }, [open, initialFilters]);
 
-  // Handle apply filters
+  // Find sort option in the array
+  const findSortOption = (value: string, direction: 'asc' | 'desc'): SortOption => {
+    return sortOptions.find(
+      option => option.value === value && option.direction === direction
+    ) || sortOptions[0];
+  };
+
+  // Handle sort change
+  const handleSortChange = (sortValue: string) => {
+    const [value, direction] = sortValue.split('-');
+    setSortOption(findSortOption(value, direction as 'asc' | 'desc'));
+  };
+
+  // Handle apply button
   const handleApply = () => {
     onApplyFilters({
       searchTerm,
       activityFilter,
       sortOption
     });
-    onClose();
   };
 
-  // Handle reset filters
+  // Handle reset button
   const handleReset = () => {
     setSearchTerm('');
     setActivityFilter('all');
-    setSortOption({ 
-      value: 'updated_at_desc', 
-      label: 'Last Updated (Newest)', 
-      direction: 'desc' 
-    });
+    setSortOption(sortOptions[0]);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="sm:max-w-md rounded-xl bg-gradient-to-br from-white to-blue-50">
         <DialogHeader>
-          <DialogTitle>Filter Batteries</DialogTitle>
+          <DialogTitle className="text-xl font-semibold">Filter & Sort Batteries</DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6 py-2">
-          {/* Search input */}
+        <div className="space-y-5 py-4">
+          {/* Search filter */}
           <div className="space-y-2">
-            <Label htmlFor="search">Search</Label>
-            <Input
-              id="search"
-              type="text"
-              placeholder="Package name or serial number..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
+            <Label htmlFor="search" className="text-sm font-medium">Search</Label>
+            <div className="relative">
+              <Input
+                id="search"
+                placeholder="Search by name, brand, serial..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9 border-blue-200 focus:border-blue-500"
+              />
+              <div className="absolute left-3 top-2.5 text-blue-500">
+                🔍
+              </div>
+            </div>
+          </div>
+          
+          {/* Battery status filter */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Battery Status</Label>
+            <RadioGroup 
+              value={activityFilter} 
+              onValueChange={(value) => setActivityFilter(value as ActivityFilter)}
+              className="flex flex-col space-y-2"
+            >
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="all" id="all" />
+                <Label htmlFor="all" className="cursor-pointer">All Batteries</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="active" id="active" />
+                <Label htmlFor="active" className="cursor-pointer">Active Only</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <RadioGroupItem value="inactive" id="inactive" />
+                <Label htmlFor="inactive" className="cursor-pointer">Inactive Only</Label>
+              </div>
+            </RadioGroup>
           </div>
           
           {/* Sort options */}
           <div className="space-y-2">
-            <Label htmlFor="sort">Sort by</Label>
-            <select
-              id="sort"
-              value={sortOption.value}
-              onChange={(e) => {
-                const option = sortOptions.find(opt => opt.value === e.target.value);
-                if (option) setSortOption(option);
-              }}
-              className="w-full py-2 px-3 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+            <Label htmlFor="sort" className="text-sm font-medium">Sort By</Label>
+            <Select 
+              value={`${sortOption.value}-${sortOption.direction}`}
+              onValueChange={handleSortChange}
             >
-              {sortOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          {/* Activity filter */}
-          <div className="space-y-2">
-            <Label>Status</Label>
-            <div className="flex space-x-2">
-              <Button
-                onClick={() => setActivityFilter('all')}
-                variant={activityFilter === 'all' ? 'default' : 'outline'}
-                className={`flex-1 ${activityFilter === 'all' ? 'bg-blue-500 text-white' : 'bg-white text-gray-700'}`}
-              >
-                All
-              </Button>
-              <Button
-                onClick={() => setActivityFilter('active')}
-                variant={activityFilter === 'active' ? 'default' : 'outline'}
-                className={`flex-1 ${activityFilter === 'active' ? 'bg-green-500 text-white' : 'bg-white text-gray-700'}`}
-              >
-                Active
-              </Button>
-              <Button
-                onClick={() => setActivityFilter('inactive')}
-                variant={activityFilter === 'inactive' ? 'default' : 'outline'}
-                className={`flex-1 ${activityFilter === 'inactive' ? 'bg-gray-500 text-white' : 'bg-white text-gray-700'}`}
-              >
-                Inactive
-              </Button>
-            </div>
+              <SelectTrigger id="sort" className="border-blue-200 focus:border-blue-500">
+                <SelectValue placeholder="Select a sort option" />
+              </SelectTrigger>
+              <SelectContent>
+                {sortOptions.map((option) => (
+                  <SelectItem 
+                    key={`${option.value}-${option.direction}`} 
+                    value={`${option.value}-${option.direction}`}
+                  >
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </div>
         
-        <DialogFooter className="flex justify-between">
-          <div className="space-x-2 flex">
-            <Button variant="outline" onClick={handleReset}>
-              Reset
-            </Button>
-            <Button variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-          </div>
-          <Button onClick={handleApply}>
+        <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0">
+          <Button 
+            variant="outline" 
+            onClick={handleReset}
+            className="border-blue-200 hover:bg-blue-50 transition-colors"
+          >
+            Reset
+          </Button>
+          <Button 
+            onClick={handleApply}
+            className="bg-gradient-to-r from-blue-400 to-blue-600 text-white hover:opacity-90 transition-opacity"
+          >
             Apply Filters
           </Button>
         </DialogFooter>
