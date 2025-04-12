@@ -44,6 +44,9 @@ interface BatteryData {
   charging_hour_telemetri: string;
   software_version: string;
   updated_at: string;
+  latitude: number;
+  longitude: number;
+  signal: number;
 }
 
 // Define the API response type
