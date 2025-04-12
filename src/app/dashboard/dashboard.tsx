@@ -1,16 +1,13 @@
 // app/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import BatteryList from "../_components/battery-list";
-import QRScanner from "../_components/qr-scanner";
 import { useAuth } from "../../utils/auth";
 import axios from 'axios';
 import useSWR from 'swr';
-import { LayoutDashboard } from "lucide-react";
-import Link from 'next/link';
+import BatteryDashboard from "./BatteryDashboard";
 
 // Define the battery data structure based on the API response
 interface BatteryData {
@@ -35,6 +32,7 @@ interface BatteryData {
   batt_volt: string;
   batt_cur: string;
   soc: string;
+  soh: string;
   max_cell_volt: string;
   max_cv_no: string;
   min_cell_volt: string;
@@ -134,7 +132,7 @@ export default function Home() {
 
       {/* Main content */}
       <div className="container mx-auto p-4">
-        {/* Bind Battery Section */}
+        {/* Bound Devices Section */}
         <Card className="shadow-sm mb-4">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <div>
@@ -144,15 +142,7 @@ export default function Home() {
               <CardDescription>
                 Manage your connected lithium batteries
               </CardDescription>
-              <Link className="flex items-center gap-2 border-green-500 text-green-500 hover:bg-green-50" href="/dashboard"><LayoutDashboard className="h-4 w-4" />Dashboard</Link>
             </div>
-            <Button 
-              onClick={openQRScanner}
-              className="bg-green-500 hover:bg-green-600 h-10 w-10 p-0 rounded-full"
-              title="Scan QR Code to bind new battery"
-            >
-              <span className="text-xl">📱</span>
-            </Button>
           </CardHeader>
           <CardContent>
             {isDataLoading && (
@@ -187,17 +177,22 @@ export default function Home() {
               </div>
             )}
             
-            {data && data.length > 0 && <BatteryList batteries={data} />}
+            {/* Dashboard Section */}
+            {data && data.length > 0 && (
+              <div className="mt-4">
+                <BatteryDashboard 
+                  data={data}
+                  isLoading={isDataLoading}
+                  error={error}
+                />
+              </div>
+            )}
+            {/* End Dashboard Section */}
+
           </CardContent>
         </Card>
       </div>
       
-      {/* QR Scanner Modal */}
-      <QRScanner
-        open={isQRScannerOpen}
-        onClose={() => setIsQRScannerOpen(false)}
-        onSuccess={handleBindingSuccess}
-      />
     </main>
   );
 }
