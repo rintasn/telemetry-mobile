@@ -1,55 +1,64 @@
 // app/page.tsx
 "use client";
 
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import BatteryList from "../_components/battery-list";
+import GensetList from "../_components/battery-list-genset";
 import QRScanner from "../_components/qr-scanner";
 import { useAuth } from "../../utils/auth";
 import axios from 'axios';
 import useSWR from 'swr';
-import { useState } from 'react';
 import { LayoutDashboard } from "lucide-react";
 import Link from 'next/link';
 
-// Define the battery data structure based on the API response
-interface BatteryData {
+// Define the genset data structure based on the API response
+interface GensetData {
   package_name: string;
-  id_user: string;
-  status_binding: string;
-  serial_number: string;
-  manufacturer: string;
-  brand: string;
-  rated_voltage: string;
-  rated_capacity: string;
-  rated_energy: string;
-  discharge_working_hours: string;
-  charge_working_hours: string;
-  idle_working_hours: string;
-  cycle_charge: string;
-  total_discharge_ah: string;
-  batt_wh_charge: string;
-  batt_wh_discharge: string;
-  charging_cycle: string;
-  total_charge_ah: string;
-  batt_volt: string;
-  batt_cur: string;
-  soc: string;
-  max_cell_volt: string;
-  max_cv_no: string;
-  min_cell_volt: string;
-  min_cv_no: string;
-  max_cell_temp: string;
-  batt_wh: string;
-  batt_ah: string;
-  working_hour_telemetri: string;
-  charging_hour_telemetri: string;
-  software_version: string;
+  status_package: string;
+  status_pln: string;
+  status_genset: string;
+  v_pln_r: number;
+  v_pln_s: number;
+  v_pln_t: number;
+  v_genset_r: number;
+  v_genset_s: number;
+  v_genset_t: number;
+  a_pln_r: number;
+  a_pln_s: number;
+  a_pln_t: number;
+  a_genset_r: number;
+  a_genset_s: number;
+  a_genset_t: number;
+  kw_pln_r: number;
+  kw_pln_s: number;
+  kw_pln_t: number;
+  kw_genset_r: number;
+  kw_genset_s: number;
+  kw_genset_t: number;
+  kwh_pln_r: number;
+  kwh_pln_s: number;
+  kwh_pln_t: number;
+  kwh_genset_r: number;
+  kwh_genset_s: number;
+  kwh_genset_t: number;
+  fq_pln_r: number;
+  fq_pln_s: number;
+  fq_pln_t: number;
+  fq_genset_r: number;
+  fq_genset_s: number;
+  fq_genset_t: number;
+  pf_pln_r: number;
+  pf_pln_s: number;
+  pf_pln_t: number;
+  pf_genset_r: number;
+  pf_genset_s: number;
+  pf_genset_t: number;
   updated_at: string;
 }
 
 // Define the API response type
-type ApiResponse = BatteryData[];
+type ApiResponse = GensetData[];
 
 // Create a fetcher function with proper JWT handling
 const fetcher = (url: string) => {
@@ -78,7 +87,7 @@ export default function Home() {
   
   // Fetch battery data using SWR
   const { data, error, isLoading: isDataLoading, mutate } = useSWR<ApiResponse>(
-    shouldFetch ? `https://portal4.incoe.astra.co.id:4433/api/data_binding?id_user=${userId}` : null,
+    shouldFetch ? `https://portal4.incoe.astra.co.id:4433/api/data_binding_genset?id_user=${userId}` : null,
     fetcher
   );
 
@@ -187,7 +196,7 @@ export default function Home() {
               </div>
             )}
             
-            {data && data.length > 0 && <BatteryList batteries={data} />}
+            {data && data.length > 0 && <GensetList genset={data} />}
           </CardContent>
         </Card>
       </div>
