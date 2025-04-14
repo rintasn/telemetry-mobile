@@ -9,7 +9,7 @@ import QRScanner from "../_components/qr-scanner";
 import { useAuth } from "../../utils/auth";
 import axios from 'axios';
 import useSWR from 'swr';
-import { LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, Power } from "lucide-react";
 import Link from 'next/link';
 
 // Define the genset data structure based on the API response
@@ -153,7 +153,8 @@ export default function Home() {
               <CardDescription>
                 Manage your connected lithium batteries
               </CardDescription>
-              <Link className="flex items-center gap-2 border-green-500 text-green-500 hover:bg-green-50" href="/dashboard"><LayoutDashboard className="h-4 w-4" />Dashboard</Link>
+              <Link className="flex items-center gap-2 border-green-500 text-green-500 hover:bg-green-50" href="/home"><LayoutDashboard className="h-4 w-4" />Battery</Link>
+            <Link className="flex items-center gap-2 border-green-500 text-green-500 hover:bg-green-50" href="/home-genset"><Power className="h-4 w-4" />Genset</Link>
             </div>
             <Button 
               onClick={openQRScanner}
