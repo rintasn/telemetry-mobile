@@ -98,6 +98,8 @@ const GensetList: React.FC<GensetListProps> = ({ genset }) => {
   const formatDate = (dateString: string) => {
     try {
       const date = new Date(dateString);
+      // Subtract 7 hours (7 * 60 * 60 * 1000 milliseconds)
+      const adjustedDate = new Date(date.getTime() - 7 * 60 * 60 * 1000);
       return new Intl.DateTimeFormat('id-ID', {
         day: '2-digit',
         month: 'short',
@@ -105,7 +107,7 @@ const GensetList: React.FC<GensetListProps> = ({ genset }) => {
         hour: '2-digit',
         minute: '2-digit',
         second: '2-digit'
-      }).format(date);
+      }).format(adjustedDate);
     } catch {
       return 'Invalid date';
     }
