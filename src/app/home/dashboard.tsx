@@ -9,7 +9,7 @@ import { useAuth } from "../../utils/auth";
 import axios from 'axios';
 import useSWR from 'swr';
 import { useState } from 'react';
-import { LayoutDashboard, Power } from "lucide-react";
+import { LayoutDashboard, Power, Sun } from "lucide-react";
 import Link from 'next/link';
 
 // Define the battery data structure based on the API response
@@ -146,6 +146,7 @@ export default function Home() {
               </CardDescription>
               <Link className="flex items-center gap-2 border-green-500 text-green-500 hover:bg-green-50" href="/dashboard"><LayoutDashboard className="h-4 w-4" />Dashboard</Link>
               <Link className="flex items-center gap-2 border-green-500 text-green-500 hover:bg-green-50" href="/home-genset"><Power className="h-4 w-4" />Genset</Link>
+              <Link className="flex items-center gap-2 border-green-500 text-green-500 hover:bg-green-50" href="/home-power-meter"><Sun className="h-4 w-4" />Power Meter</Link>
             </div>
             <Button 
               onClick={openQRScanner}

@@ -9,101 +9,22 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import axios from 'axios';
 import { Html5Qrcode } from 'html5-qrcode';
-
-interface QRScannerProps {
-  open: boolean;
-  onClose: () => void;
-  onSuccess: () => void;
-}
-
-// Define the scan mode type
-type ScanMode = 'battery' | 'genset';
-
-// Define the battery data structure based on the API response
-interface BatteryData {
-  package_name: string;
-  id_user: string;
-  status_binding: string;
-  serial_number: string;
-  manufacturer: string;
-  brand: string;
-  rated_voltage: string;
-  rated_capacity: string;
-  rated_energy: string;
-  discharge_working_hours: string;
-  charge_working_hours: string;
-  idle_working_hours: string;
-  cycle_charge: string;
-  total_discharge_ah: string;
-  batt_wh_charge: string;
-  batt_wh_discharge: string;
-  charging_cycle: string;
-  total_charge_ah: string;
-  batt_volt: string;
-  batt_cur: string;
-  soc: string;
-  max_cell_volt: string;
-  max_cv_no: string;
-  min_cell_volt: string;
-  min_cv_no: string;
-  max_cell_temp: string;
-  batt_wh: string;
-  batt_ah: string;
-  working_hour_telemetri: string;
-  charging_hour_telemetri: string;
-  software_version: string;
-  updated_at: string;
-}
-
-// Define the genset data structure based on the API response
-interface GensetData {
-  package_name: string;
-  status_pln: string;
-  v_pln_r: number;
-  v_pln_s: number;
-  v_pln_t: number;
-  v_genset_r: number;
-  v_genset_s: number;
-  v_genset_t: number;
-  a_pln_r: number;
-  a_pln_s: number;
-  a_pln_t: number;
-  a_genset_r: number;
-  a_genset_s: number;
-  a_genset_t: number;
-  kw_pln_r: number;
-  kw_pln_s: number;
-  kw_pln_t: number;
-  kw_genset_r: number;
-  kw_genset_s: number;
-  kw_genset_t: number;
-  kwh_pln_r: number;
-  kwh_pln_s: number;
-  kwh_pln_t: number;
-  kwh_genset_r: number;
-  kwh_genset_s: number;
-  kwh_genset_t: number;
-  fq_pln_r: number;
-  fq_pln_s: number;
-  fq_pln_t: number;
-  fq_genset_r: number;
-  fq_genset_s: number;
-  fq_genset_t: number;
-  pf_pln_r: number;
-  pf_pln_s: number;
-  pf_pln_t: number;
-  pf_genset_r: number;
-  pf_genset_s: number;
-  pf_genset_t: number;
-  updated_at: string;
-  status_binding?: string; // Added for compatibility with binding logic
-  id_user?: string; // Added for compatibility with binding logic
-}
-
-// Union type for the device data
-type DeviceData = BatteryData | GensetData;
+import { BatteryPreview } from './scanner/battery-preview';
+import { GensetPreview } from './scanner/genset-preview';
+import { PowerMeterPreview } from './scanner/power-meter-preview';
+import { ScanStep } from './scanner/scan-step';
+import { BindingStep } from './scanner/binding-step';
+import { 
+  BatteryData, 
+  GensetData, 
+  PowerMeterData, 
+  DeviceData, 
+  ScanMode,
+  QRScannerProps
+} from './scanner/types';
 
 const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
   const [scanMode, setScanMode] = useState<ScanMode>('battery');
@@ -237,9 +158,13 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
     setFacingMode(prev => prev === 'environment' ? 'user' : 'environment');
   };
   
-  // Helper function to determine if data is battery data
+  // Helper functions to determine data type
   const isBatteryData = (data: any): data is BatteryData => {
     return 'batt_volt' in data;
+  };
+
+  const isPowerMeterData = (data: any): data is PowerMeterData => {
+    return 'v1n' in data && 'avg_vll' in data;
   };
 
   // Function to fetch device data for preview
@@ -254,9 +179,14 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
       }
       
       // Determine API endpoint based on scan mode
-      const endpoint = scanMode === 'battery'
-        ? `https://portal4.incoe.astra.co.id:4433/api/data_binding_detail?package_name=${packageId.trim()}`
-        : `https://portal4.incoe.astra.co.id:4433/api/data_binding_detail_genset?package_name=${packageId.trim()}`;
+      let endpoint = '';
+      if (scanMode === 'battery') {
+        endpoint = `https://portal4.incoe.astra.co.id:4433/api/data_binding_detail?package_name=${packageId.trim()}`;
+      } else if (scanMode === 'genset') {
+        endpoint = `https://portal4.incoe.astra.co.id:4433/api/data_binding_detail_genset?package_name=${packageId.trim()}`;
+      } else if (scanMode === 'power_meter') {
+        endpoint = `https://portal4.incoe.astra.co.id:4433/api/data_binding_detail_power_meter?package_name=${packageId.trim()}`;
+      }
       
       const response = await axios.get(
         endpoint,
@@ -274,86 +204,7 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
       } else {
         // If no data is returned, create a minimal preview with just the package name
         // This allows binding of new devices that don't have data yet
-        if (scanMode === 'battery') {
-          setPreviewData({
-            package_name: packageId.trim(),
-            id_user: "",
-            status_binding: "0",
-            serial_number: "",
-            manufacturer: "",
-            brand: "",
-            rated_voltage: "",
-            rated_capacity: "",
-            rated_energy: "",
-            discharge_working_hours: "",
-            charge_working_hours: "",
-            idle_working_hours: "",
-            cycle_charge: "",
-            total_discharge_ah: "",
-            batt_wh_charge: "",
-            batt_wh_discharge: "",
-            charging_cycle: "",
-            total_charge_ah: "",
-            batt_volt: "",
-            batt_cur: "",
-            soc: "",
-            max_cell_volt: "",
-            max_cv_no: "",
-            min_cell_volt: "",
-            min_cv_no: "",
-            max_cell_temp: "",
-            batt_wh: "",
-            batt_ah: "",
-            working_hour_telemetri: "",
-            charging_hour_telemetri: "",
-            software_version: "",
-            updated_at: new Date().toISOString()
-          } as BatteryData);
-        } else {
-          setPreviewData({
-            package_name: packageId.trim(),
-            status_pln: "0",
-            v_pln_r: 0,
-            v_pln_s: 0,
-            v_pln_t: 0,
-            v_genset_r: 0,
-            v_genset_s: 0,
-            v_genset_t: 0,
-            a_pln_r: 0,
-            a_pln_s: 0,
-            a_pln_t: 0,
-            a_genset_r: 0,
-            a_genset_s: 0,
-            a_genset_t: 0,
-            kw_pln_r: 0,
-            kw_pln_s: 0,
-            kw_pln_t: 0,
-            kw_genset_r: 0,
-            kw_genset_s: 0,
-            kw_genset_t: 0,
-            kwh_pln_r: 0,
-            kwh_pln_s: 0,
-            kwh_pln_t: 0,
-            kwh_genset_r: 0,
-            kwh_genset_s: 0,
-            kwh_genset_t: 0,
-            fq_pln_r: 0,
-            fq_pln_s: 0,
-            fq_pln_t: 0,
-            fq_genset_r: 0,
-            fq_genset_s: 0,
-            fq_genset_t: 0,
-            pf_pln_r: 0,
-            pf_pln_s: 0,
-            pf_pln_t: 0,
-            pf_genset_r: 0,
-            pf_genset_s: 0,
-            pf_genset_t: 0,
-            status_binding: "0", // For binding compatibility
-            id_user: "",         // For binding compatibility
-            updated_at: new Date().toISOString()
-          } as GensetData);
-        }
+        createMinimalPreviewData(packageId);
         setStep('preview');
       }
     } catch (err: any) {
@@ -362,6 +213,120 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
       setPreviewData(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const createMinimalPreviewData = (packageId: string) => {
+    if (scanMode === 'battery') {
+      setPreviewData({
+        package_name: packageId.trim(),
+        id_user: "",
+        status_binding: "0",
+        serial_number: "",
+        manufacturer: "",
+        brand: "",
+        rated_voltage: "",
+        rated_capacity: "",
+        rated_energy: "",
+        discharge_working_hours: "",
+        charge_working_hours: "",
+        idle_working_hours: "",
+        cycle_charge: "",
+        total_discharge_ah: "",
+        batt_wh_charge: "",
+        batt_wh_discharge: "",
+        charging_cycle: "",
+        total_charge_ah: "",
+        batt_volt: "",
+        batt_cur: "",
+        soc: "",
+        max_cell_volt: "",
+        max_cv_no: "",
+        min_cell_volt: "",
+        min_cv_no: "",
+        max_cell_temp: "",
+        batt_wh: "",
+        batt_ah: "",
+        working_hour_telemetri: "",
+        charging_hour_telemetri: "",
+        software_version: "",
+        updated_at: new Date().toISOString()
+      } as BatteryData);
+    } else if (scanMode === 'genset') {
+      setPreviewData({
+        package_name: packageId.trim(),
+        status_pln: "0",
+        v_pln_r: 0,
+        v_pln_s: 0,
+        v_pln_t: 0,
+        v_genset_r: 0,
+        v_genset_s: 0,
+        v_genset_t: 0,
+        a_pln_r: 0,
+        a_pln_s: 0,
+        a_pln_t: 0,
+        a_genset_r: 0,
+        a_genset_s: 0,
+        a_genset_t: 0,
+        kw_pln_r: 0,
+        kw_pln_s: 0,
+        kw_pln_t: 0,
+        kw_genset_r: 0,
+        kw_genset_s: 0,
+        kw_genset_t: 0,
+        kwh_pln_r: 0,
+        kwh_pln_s: 0,
+        kwh_pln_t: 0,
+        kwh_genset_r: 0,
+        kwh_genset_s: 0,
+        kwh_genset_t: 0,
+        fq_pln_r: 0,
+        fq_pln_s: 0,
+        fq_pln_t: 0,
+        fq_genset_r: 0,
+        fq_genset_s: 0,
+        fq_genset_t: 0,
+        pf_pln_r: 0,
+        pf_pln_s: 0,
+        pf_pln_t: 0,
+        pf_genset_r: 0,
+        pf_genset_s: 0,
+        pf_genset_t: 0,
+        status_binding: "0", // For binding compatibility
+        id_user: "",         // For binding compatibility
+        updated_at: new Date().toISOString()
+      } as GensetData);
+    } else if (scanMode === 'power_meter') {
+      setPreviewData({
+        package_name: packageId.trim(),
+        updated_at: new Date().toISOString(),
+        v1n: 0,
+        v2n: 0,
+        v3n: 0,
+        avg_vln: 0,
+        v12: 0,
+        v23: 0,
+        v31: 0,
+        avg_vll: 0,
+        cur1: 0,
+        cur2: 0,
+        cur3: 0,
+        avg_cur: 0,
+        kw1: 0,
+        kw2: 0,
+        kw3: 0,
+        kva1: 0,
+        kva2: 0,
+        kva3: 0,
+        total_kw: 0,
+        total_kva: 0,
+        avg_pf: 0,
+        freq: 0,
+        kwh: 0,
+        kvah: 0,
+        status_binding: "0", // For binding compatibility
+        id_user: "",         // For binding compatibility
+      } as PowerMeterData);
     }
   };
 
@@ -402,10 +367,8 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
       
       console.log('Sending form data:', Object.fromEntries(urlEncodedData));
       
-      // Determine API endpoint based on scan mode
-      const endpoint = scanMode === 'battery'
-        ? 'https://portal4.incoe.astra.co.id:4433/api/add_binding_battery'
-        : 'https://portal4.incoe.astra.co.id:4433/api/add_binding_battery';
+      // Determine API endpoint based on scan mode - using same endpoint for all types
+      const endpoint = 'https://portal4.incoe.astra.co.id:4433/api/add_binding_battery';
       
       // Send data in x-www-form-urlencoded format (matching r.ParseForm() in Go)
       const response = await axios.post(
@@ -459,39 +422,6 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
     setStep('scan');
   };
 
-  // Convert minutes to hours with 2 decimal places
-  const minutesToHours = (minutes: string): string => {
-    const mins = parseFloat(minutes);
-    if (isNaN(mins)) return '0.00';
-    return (mins / 60).toFixed(2);
-  };
-
-  // Format number with 2 decimal places
-  const formatNumber = (value: number | string, defaultValue = '0.00'): string => {
-    if (value === undefined || value === null || value === '') return defaultValue;
-    const num = typeof value === 'string' ? parseFloat(value) : value;
-    if (isNaN(num)) return defaultValue;
-    return num.toFixed(2);
-  };
-
-  // Format date to local time
-  const formatDate = (dateString: string): string => {
-    if (!dateString) return 'N/A';
-    
-    try {
-      const date = new Date(dateString);
-      return new Intl.DateTimeFormat('id-ID', {
-        day: '2-digit',
-        month: 'short',
-        year: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      }).format(date);
-    } catch {
-      return 'Invalid date';
-    }
-  };
-
   // This function specifically handles dialog closing to prevent unintended closures
   const handleDialogChange = (isOpen: boolean) => {
     if (!isOpen) {
@@ -509,355 +439,113 @@ const QRScanner: React.FC<QRScannerProps> = ({ open, onClose, onSuccess }) => {
     // Don't restart scanner as it's already running
   };
 
+  // Get device type display name
+  const getDeviceTypeName = () => {
+    switch(scanMode) {
+      case 'battery': return 'Battery';
+      case 'genset': return 'Genset';
+      case 'power_meter': return 'Power Meter';
+      default: return 'Device';
+    }
+  };
+
+  // Render preview component based on device type
+  const renderPreviewComponent = () => {
+    if (!previewData) return null;
+
+    if (isBatteryData(previewData)) {
+      return (
+        <BatteryPreview 
+          data={previewData} 
+          loading={loading} 
+          onBack={resetToScan} 
+          onBind={bindDevice} 
+        />
+      );
+    } else if (isPowerMeterData(previewData)) {
+      return (
+        <PowerMeterPreview 
+          data={previewData} 
+          loading={loading} 
+          onBack={resetToScan} 
+          onBind={bindDevice} 
+        />
+      );
+    } else {
+      return (
+        <GensetPreview 
+          data={previewData as GensetData} 
+          loading={loading} 
+          onBack={resetToScan} 
+          onBind={bindDevice} 
+        />
+      );
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={handleDialogChange}>
-      <DialogContent className="sm:max-w-md" onClick={(e) => e.stopPropagation()}>
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md p-0" onClick={(e) => e.stopPropagation()}>
+        <DialogHeader className="p-6 pb-2">
           <DialogTitle>
-            {step === 'scan' && `Scan ${scanMode === 'battery' ? 'Battery' : 'Genset'} QR Code`}
-            {step === 'preview' && `Verify ${scanMode === 'battery' ? 'Battery' : 'Genset'} Data`}
-            {step === 'binding' && `Binding ${scanMode === 'battery' ? 'Battery' : 'Genset'}...`}
+            {step === 'scan' && `Scan ${getDeviceTypeName()} QR Code`}
+            {step === 'preview' && `Verify ${getDeviceTypeName()} Data`}
+            {step === 'binding' && `Binding ${getDeviceTypeName()}...`}
           </DialogTitle>
         </DialogHeader>
         
-        {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        )}
-        
-        <div className="mt-2 space-y-4">
-          {/* Scan Step */}
-          {step === 'scan' && (
-            <div className="space-y-6">
-              {/* Mode Selection */}
-              <Tabs defaultValue={scanMode} onValueChange={(value) => handleModeChange(value as ScanMode)} className="w-full">
-                <TabsList className="grid grid-cols-2 w-full">
-                  <TabsTrigger value="battery">Battery</TabsTrigger>
-                  <TabsTrigger value="genset">Genset</TabsTrigger>
-                </TabsList>
-              </Tabs>
-
-              {/* QR Scanner Section */}
-              <div className="space-y-2">
-                <h3 className="font-medium text-sm">Scan QR Code</h3>
-                <div className="flex flex-col items-center space-y-4">
-                  {!scanResult ? (
-                    <>
-                      <div className="w-full overflow-hidden rounded-lg border border-gray-200">
-                        {/* Scanner container */}
-                        <div 
-                          id={scannerContainerId} 
-                          style={{ width: '100%', minHeight: '250px', position: 'relative' }} 
-                        />
-                        
-                        {!cameraStarted && !error && (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 bg-opacity-75">
-                            <p>Starting camera...</p>
-                          </div>
-                        )}
-                      </div>
-                      
-                      <div className="flex space-x-2">
-                        <Button 
-                          variant="outline" 
-                          onClick={toggleCamera}
-                          className="flex items-center space-x-1"
-                          disabled={!cameraStarted}
-                        >
-                          <span>Switch Camera</span>
-                          <span>{facingMode === 'environment' ? '📷' : '🤳'}</span>
-                        </Button>
-                        
-                        {error && (
-                          <Button 
-                            onClick={initializeScanner}
-                            className="flex items-center space-x-1"
-                          >
-                            Retry Camera
-                          </Button>
-                        )}
-                      </div>
-                      
-                      <p className="text-xs text-gray-500 text-center">
-                        Position the QR code within the frame to scan
-                      </p>
-                    </>
-                  ) : (
-                    <div className="w-full p-4 border rounded-lg bg-gray-50">
-                      <h3 className="font-medium mb-2">Scanned Package ID:</h3>
-                      <code className="block p-2 bg-white border rounded mb-4 overflow-x-auto">
-                        {scanResult}
-                      </code>
-                      
-                      <div className="flex justify-between">
-                        <Button variant="outline" onClick={resetScan} disabled={loading}>
-                          Scan Again
-                        </Button>
-                        <Button 
-                          onClick={() => handleScanResult(scanResult)} 
-                          disabled={loading}
-                          className="bg-blue-500 hover:bg-blue-600 text-white"
-                        >
-                          {loading ? 'Checking...' : 'Check Data'}
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Manual Input Section */}
-              <div className="space-y-2 pt-2 border-t">
-                <h3 className="font-medium text-sm">Manual Input</h3>
-                <form onSubmit={handleSubmitManual} className="space-y-3">
-                  <div className="space-y-2">
-                    <Label htmlFor="packageId">Package ID</Label>
-                    <Input 
-                      id="packageId"
-                      value={manualInput}
-                      onChange={(e) => setManualInput(e.target.value)}
-                      placeholder={`Enter ${scanMode} package ID manually`}
-                      required
-                    />
-                    <p className="text-xs text-gray-500">
-                      Enter the {scanMode} package ID exactly as it appears on the package
-                    </p>
-                  </div>
-                  
-                  <Button 
-                    type="submit" 
-                    className="w-full bg-blue-500 hover:bg-blue-600 text-white" 
-                    disabled={loading || !manualInput.trim()}
-                  >
-                    {loading ? 'Checking...' : 'Check Data'}
-                  </Button>
-                </form>
-              </div>
-            </div>
-          )}
-          
-          {/* Preview Step - Battery */}
-          {step === 'preview' && previewData && isBatteryData(previewData) && (
+        <ScrollArea className="max-h-[80vh]">
+          <div className="p-6 pt-2">
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
             <div className="space-y-4">
-              <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
-                <h3 className="font-medium text-blue-700 mb-2">Battery Details</h3>
-                
-                <div className="space-y-4">
-                  {/* Basic info */}
-                  <div className="bg-white rounded-lg p-4 border border-blue-100 flex flex-col items-center">
-                    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-2">
-                      <span className="text-3xl">🔋</span>
-                    </div>
-                    <h4 className="text-lg font-bold text-gray-800">{previewData.package_name}</h4>
-                    <p className="text-sm text-gray-500">{previewData.brand || previewData.manufacturer || "Unknown Brand"}</p>
-                    
-                    {previewData.status_binding === "1" && (
-                      <div className="mt-2 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                        Already bound to a user
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Battery specs */}
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-white p-3 rounded-lg border border-gray-100">
-                      <p className="text-xs text-gray-500 mb-1">Serial Number</p>
-                      <p className="font-medium">{previewData.serial_number || "N/A"}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-gray-100">
-                      <p className="text-xs text-gray-500 mb-1">Software Version</p>
-                      <p className="font-medium">{previewData.software_version || "N/A"}</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-gray-100">
-                      <p className="text-xs text-gray-500 mb-1">Rated Voltage</p>
-                      <p className="font-medium">{previewData.rated_voltage || "N/A"} V</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-gray-100">
-                      <p className="text-xs text-gray-500 mb-1">Rated Capacity</p>
-                      <p className="font-medium">{previewData.rated_capacity || "N/A"} Ah</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-gray-100">
-                      <p className="text-xs text-gray-500 mb-1">Current Voltage</p>
-                      <p className="font-medium">{parseFloat(previewData.batt_volt || "0").toFixed(2)} V</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-gray-100">
-                      <p className="text-xs text-gray-500 mb-1">State of Charge</p>
-                      <p className="font-medium">{previewData.soc || "0"}%</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-gray-100">
-                      <p className="text-xs text-gray-500 mb-1">Working Hours</p>
-                      <p className="font-medium">{minutesToHours(previewData.working_hour_telemetri || "0")} h</p>
-                    </div>
-                    <div className="bg-white p-3 rounded-lg border border-gray-100">
-                      <p className="text-xs text-gray-500 mb-1">Last Update</p>
-                      <p className="font-medium text-xs">{formatDate(previewData.updated_at)}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              {/* Scan Step */}
+              {step === 'scan' && (
+                <ScanStep 
+                  scanMode={scanMode}
+                  onModeChange={handleModeChange}
+                  scanResult={scanResult}
+                  cameraStarted={cameraStarted}
+                  error={error}
+                  loading={loading}
+                  scannerContainerId={scannerContainerId}
+                  onToggleCamera={toggleCamera}
+                  onInitScanner={initializeScanner}
+                  onResetScan={resetScan}
+                  onScanResult={handleScanResult}
+                  manualInput={manualInput}
+                  onManualInputChange={setManualInput}
+                  onSubmitManual={handleSubmitManual}
+                  facingMode={facingMode}
+                  deviceTypeName={getDeviceTypeName()}
+                />
+              )}
               
-              {/* Confirmation buttons */}
-              <div className="flex justify-between pt-2 border-t">
-                <Button variant="outline" onClick={resetToScan} disabled={loading}>
-                  Go Back
-                </Button>
-                <Button 
-                  onClick={bindDevice} 
-                  disabled={loading || previewData.status_binding === "1"}
-                  className="bg-green-500 hover:bg-green-600 text-white"
-                >
-                  {loading ? 'Binding...' : 'Confirm & Bind Battery'}
-                </Button>
-              </div>
+              {/* Preview Step */}
+              {step === 'preview' && renderPreviewComponent()}
               
-              {previewData.status_binding === "1" && (
-                <Alert variant="destructive" className="bg-yellow-50 border-yellow-200 text-yellow-800">
-                  <AlertDescription>
-                    This battery appears to be already bound to a user. You cannot bind it again.
-                  </AlertDescription>
-                </Alert>
+              {/* Binding Step - Loading indicator */}
+              {step === 'binding' && (
+                <BindingStep 
+                  deviceTypeName={getDeviceTypeName()} 
+                  packageName={previewData?.package_name || ''} 
+                />
               )}
             </div>
-          )}
-
-          {/* Preview Step - Genset */}
-          {step === 'preview' && previewData && !isBatteryData(previewData) && (
-            <div className="space-y-4">
-              <div className="bg-green-50 p-4 rounded-lg border border-green-100">
-                <h3 className="font-medium text-green-700 mb-2">Genset Details</h3>
-                
-                <div className="space-y-4">
-                  {/* Basic info */}
-                  <div className="bg-white rounded-lg p-4 border border-green-100 flex flex-col items-center">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-2">
-                      <span className="text-3xl">⚡</span>
-                    </div>
-                    <h4 className="text-lg font-bold text-gray-800">{previewData.package_name}</h4>
-                    <p className="text-sm text-gray-500">Power Generation Unit</p>
-                    
-                    {previewData.status_binding === "1" && (
-                      <div className="mt-2 px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                        Already bound to a user
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* PLN Status */}
-                  <div className="bg-white p-3 rounded-lg border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">PLN Status</p>
-                    <p className="font-medium">{previewData.status_pln === "1" ? "Active" : "Inactive"}</p>
-                  </div>
-                  
-                  {/* Genset specs */}
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium">PLN Voltage (V)</h4>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-white p-2 rounded-lg border border-gray-100">
-                        <p className="text-xs text-gray-500 mb-1">R Phase</p>
-                        <p className="font-medium">{formatNumber(previewData.v_pln_r)} V</p>
-                      </div>
-                      <div className="bg-white p-2 rounded-lg border border-gray-100">
-                        <p className="text-xs text-gray-500 mb-1">S Phase</p>
-                        <p className="font-medium">{formatNumber(previewData.v_pln_s)} V</p>
-                      </div>
-                      <div className="bg-white p-2 rounded-lg border border-gray-100">
-                        <p className="text-xs text-gray-500 mb-1">T Phase</p>
-                        <p className="font-medium">{formatNumber(previewData.v_pln_t)} V</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium">Genset Voltage (V)</h4>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div className="bg-white p-2 rounded-lg border border-gray-100">
-                        <p className="text-xs text-gray-500 mb-1">R Phase</p>
-                        <p className="font-medium">{formatNumber(previewData.v_genset_r)} V</p>
-                      </div>
-                      <div className="bg-white p-2 rounded-lg border border-gray-100">
-                        <p className="text-xs text-gray-500 mb-1">S Phase</p>
-                        <p className="font-medium">{formatNumber(previewData.v_genset_s)} V</p>
-                      </div>
-                      <div className="bg-white p-2 rounded-lg border border-gray-100">
-                        <p className="text-xs text-gray-500 mb-1">T Phase</p>
-                        <p className="font-medium">{formatNumber(previewData.v_genset_t)} V</p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium">Power Consumption (kWh)</h4>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="bg-white p-2 rounded-lg border border-gray-100">
-                        <p className="text-xs text-gray-500 mb-1">PLN Total</p>
-                        <p className="font-medium">
-                          {(parseFloat(formatNumber(previewData.kwh_pln_r)) + 
-                            parseFloat(formatNumber(previewData.kwh_pln_s)) + 
-                            parseFloat(formatNumber(previewData.kwh_pln_t))).toFixed(3)} kWh
-                        </p>
-                      </div>
-                      <div className="bg-white p-2 rounded-lg border border-gray-100">
-                        <p className="text-xs text-gray-500 mb-1">Genset Total</p>
-                        <p className="font-medium">
-                          {(parseFloat(formatNumber(previewData.kwh_genset_r)) + 
-                            parseFloat(formatNumber(previewData.kwh_genset_s)) + 
-                            parseFloat(formatNumber(previewData.kwh_genset_t))).toFixed(3)} kWh
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-white p-3 rounded-lg border border-gray-100">
-                    <p className="text-xs text-gray-500 mb-1">Last Update</p>
-                    <p className="font-medium text-xs">{formatDate(previewData.updated_at)}</p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Confirmation buttons */}
-              <div className="flex justify-between pt-2 border-t">
-                <Button variant="outline" onClick={resetToScan} disabled={loading}>
-                  Go Back
-                </Button>
-                <Button 
-                  onClick={bindDevice} 
-                  disabled={loading || previewData.status_binding === "1"}
-                  className="bg-green-500 hover:bg-green-600 text-white"
-                >
-                  {loading ? 'Binding...' : 'Confirm & Bind Genset'}
-                </Button>
-              </div>
-              
-              {previewData.status_binding === "1" && (
-                <Alert variant="destructive" className="bg-yellow-50 border-yellow-200 text-yellow-800">
-                  <AlertDescription>
-                    This genset appears to be already bound to a user. You cannot bind it again.
-                  </AlertDescription>
-                </Alert>
-              )}
-            </div>
-          )}
-          
-          {/* Binding Step - Loading indicator */}
-          {step === 'binding' && (
-            <div className="py-8 flex flex-col items-center justify-center space-y-4">
-              <div className="w-16 h-16 border-4 border-t-blue-500 rounded-full animate-spin"></div>
-              <p className="text-blue-500 font-medium">Binding {scanMode === 'battery' ? 'Battery' : 'Genset'}...</p>
-              <p className="text-sm text-gray-500 text-center">
-                Please wait while we bind package {previewData?.package_name} to your account
-              </p>
-            </div>
-          )}
-        </div>
+          </div>
+        </ScrollArea>
         
-        <DialogFooter className="flex justify-between sm:justify-between">
+        <DialogFooter className="flex justify-between sm:justify-between p-6 pt-2 border-t">
           <Button variant="outline" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
           {step === 'scan' && (
             <p className="text-xs text-gray-500">
-              Scan the QR code on the {scanMode} package
+              Scan the QR code on the {getDeviceTypeName().toLowerCase()} package
             </p>
           )}
         </DialogFooter>

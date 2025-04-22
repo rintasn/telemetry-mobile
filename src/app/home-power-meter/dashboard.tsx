@@ -4,61 +4,47 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import GensetList from "../_components/battery-list-genset";
+import PowerMeterList from "../_components/battery-list-power-meter";
 import QRScanner from "../_components/qr-scanner";
 import { useAuth } from "../../utils/auth";
 import axios from 'axios';
 import useSWR from 'swr';
-import { LayoutDashboard, Power, Sun } from "lucide-react";
+import { LayoutDashboard, Power } from "lucide-react";
 import Link from 'next/link';
 
-// Define the genset data structure based on the API response
-interface GensetData {
-  package_name: string;
-  status_package: string;
-  status_pln: string;
-  status_genset: string;
-  v_pln_r: number;
-  v_pln_s: number;
-  v_pln_t: number;
-  v_genset_r: number;
-  v_genset_s: number;
-  v_genset_t: number;
-  a_pln_r: number;
-  a_pln_s: number;
-  a_pln_t: number;
-  a_genset_r: number;
-  a_genset_s: number;
-  a_genset_t: number;
-  kw_pln_r: number;
-  kw_pln_s: number;
-  kw_pln_t: number;
-  kw_genset_r: number;
-  kw_genset_s: number;
-  kw_genset_t: number;
-  kwh_pln_r: number;
-  kwh_pln_s: number;
-  kwh_pln_t: number;
-  kwh_genset_r: number;
-  kwh_genset_s: number;
-  kwh_genset_t: number;
-  fq_pln_r: number;
-  fq_pln_s: number;
-  fq_pln_t: number;
-  fq_genset_r: number;
-  fq_genset_s: number;
-  fq_genset_t: number;
-  pf_pln_r: number;
-  pf_pln_s: number;
-  pf_pln_t: number;
-  pf_genset_r: number;
-  pf_genset_s: number;
-  pf_genset_t: number;
+// Define the power meter data structure based on the API response
+interface PowerMeterData {
+  created_at: string;
   updated_at: string;
+  v1n: number;
+  v2n: number;
+  v3n: number;
+  avg_vln: number;
+  v12: number;
+  v23: number;
+  v31: number;
+  avg_vll: number;
+  cur1: number;
+  cur2: number;
+  cur3: number;
+  avg_cur: number;
+  kw1: number;
+  kw2: number;
+  kw3: number;
+  kva1: number;
+  kva2: number;
+  kva3: number;
+  total_kw: number;
+  total_kva: number;
+  avg_pf: number;
+  freq: number;
+  kwh: number;
+  kvah: number;
+  package_name: string;
 }
 
 // Define the API response type
-type ApiResponse = GensetData[];
+type ApiResponse = PowerMeterData[];
 
 // Create a fetcher function with proper JWT handling
 const fetcher = (url: string) => {
@@ -87,12 +73,12 @@ export default function Home() {
   
   // Fetch battery data using SWR
   const { data, error, isLoading: isDataLoading, mutate } = useSWR<ApiResponse>(
-    shouldFetch ? `https://portal4.incoe.astra.co.id:4433/api/data_binding_genset?id_user=${userId}` : null,
+    shouldFetch ? `https://portal4.incoe.astra.co.id:4433/api/data_binding_power_meter?id_user=${userId}` : null,
     fetcher
   );
 
   // Open QR scanner modal
-  const openQRScanner = () => {
+const openQRScanner = () => {
     console.log("Opening QR scanner...");
     setIsQRScannerOpen(true);
   };
@@ -154,7 +140,7 @@ export default function Home() {
                 Manage your connected lithium batteries
               </CardDescription>
               <Link className="flex items-center gap-2 border-green-500 text-green-500 hover:bg-green-50" href="/home"><LayoutDashboard className="h-4 w-4" />Battery</Link>
-              <Link className="flex items-center gap-2 border-green-500 text-green-500 hover:bg-green-50" href="/home-power-meter"><Sun className="h-4 w-4" />Power Meter</Link>
+            <Link className="flex items-center gap-2 border-green-500 text-green-500 hover:bg-green-50" href="/home-genset"><Power className="h-4 w-4" />Genset</Link>
             </div>
             <Button 
               onClick={openQRScanner}
@@ -197,7 +183,7 @@ export default function Home() {
               </div>
             )}
             
-            {data && data.length > 0 && <GensetList genset={data} />}
+            {data && data.length > 0 && <PowerMeterList powerMeter={data} />}
           </CardContent>
         </Card>
       </div>
