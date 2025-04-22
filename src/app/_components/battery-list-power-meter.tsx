@@ -17,7 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import PowerMeterExcelDownload from "./PowerMeterExcelDownload";
 
-// Interfaz actualizada para coincidir con la respuesta de la API
+// Updated interface to match the API response
 interface PowerMeterData {
   created_at: string;
   updated_at: string;
@@ -55,7 +55,7 @@ interface PowerMeterListProps {
 const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
   const [expandedPackage, setExpandedPackage] = useState<string | null>(null);
 
-  // Función para alternar la expansión de un paquete
+  // Function to toggle package expansion
   const togglePackageExpansion = (packageName: string) => {
     if (expandedPackage === packageName) {
       setExpandedPackage(null);
@@ -64,7 +64,7 @@ const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
     }
   };
 
-  // Función para formatear la fecha
+  // Function to format the date
   const formatDate = (dateString: string): string => {
     try {
       const date = new Date(dateString);
@@ -80,22 +80,22 @@ const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
     }
   };
 
-  // Función para calcular el porcentaje de potencia
+  // Function to calculate power percentage
   const calculatePowerPercentage = (kw: number): number => {
-    // Suponiendo que 10kW es el 100% para este ejemplo
-    // Ajustar según los requisitos reales
+    // Assuming 10kW is 100% for this example
+    // Adjust according to real requirements
     const maxPower = 10;
     return Math.min(kw / maxPower, 1);
   };
 
-  // Función para determinar el estado (normal, alerta, crítico)
+  // Function to determine the status (normal, warning, critical)
   const getPowerStatus = (kw: number, avg_pf: number): 'normal' | 'warning' | 'critical' => {
     if (avg_pf < 0.85) return 'critical';
-    if (kw > 8) return 'warning'; // Ajustar según los requisitos reales
+    if (kw > 8) return 'warning'; // Adjust according to real requirements
     return 'normal';
   };
 
-  // Obtener el color para el estado
+  // Get color for status
   const getStatusColor = (status: 'normal' | 'warning' | 'critical'): string => {
     switch (status) {
       case 'normal': return 'text-green-500';
@@ -110,27 +110,16 @@ const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
       {/* Header info */}
       <div className="mb-6 flex justify-between items-center">
         <div className="text-sm text-gray-500">
-          Mostrando {powerMeter.length} sistemas de gestión de energía
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <div className="flex items-center mr-4">
-            <div className="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>
-            <span className="text-xs font-medium text-gray-600">PLN</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
-            <span className="text-xs font-medium text-gray-600">Genset</span>
-          </div>
+          Showing {powerMeter.length} Power Meter Data
         </div>
       </div>
 
-      {/* Genset cards grid */}
+      {/* Power meter cards grid */}
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
         {powerMeter.map((item, index) => {
-          // Calcular porcentajes y estados
+          // Calculate percentages and states
           const plnPowerPercentage = calculatePowerPercentage(item.total_kw);
-          const gensetPowerPercentage = 0.3; // Valor predeterminado para visualización
+          const gensetPowerPercentage = 0.3; // Default value for visualization
           const powerStatus = getPowerStatus(item.total_kw, item.avg_pf);
           const statusColor = getStatusColor(powerStatus);
                     
@@ -333,7 +322,7 @@ const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-xl font-bold text-gray-800 flex items-center">
                     <Cable className="w-5 h-5 text-blue-500 mr-2" />
-                    Datos detallados: {item.package_name}
+                    Detailed Data: {item.package_name}
                   </h2>
                   <div className="flex items-center space-x-2">
                     {/* Excel Download Button */}
@@ -362,7 +351,7 @@ const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
                   <div className="bg-blue-50 p-4 rounded-xl">
                     <h3 className="text-md font-semibold text-blue-700 mb-3 flex items-center">
                       <Zap className="w-4 h-4 mr-2" />
-                      Voltajes
+                      Voltages
                     </h3>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center border-b border-blue-100 pb-1">
@@ -378,7 +367,7 @@ const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
                         <span className="text-sm font-medium">{item.v31.toFixed(1)} V</span>
                       </div>
                       <div className="flex justify-between items-center pt-1">
-                        <span className="text-sm font-semibold text-blue-700">Promedio:</span>
+                        <span className="text-sm font-semibold text-blue-700">Average:</span>
                         <span className="text-sm font-semibold text-blue-700">{item.avg_vll.toFixed(1)} V</span>
                       </div>
                     </div>
@@ -388,7 +377,7 @@ const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
                   <div className="bg-green-50 p-4 rounded-xl">
                     <h3 className="text-md font-semibold text-green-700 mb-3 flex items-center">
                       <Activity className="w-4 h-4 mr-2" />
-                      Corrientes
+                      Currents
                     </h3>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center border-b border-green-100 pb-1">
@@ -404,7 +393,7 @@ const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
                         <span className="text-sm font-medium">{item.cur3.toFixed(2)} A</span>
                       </div>
                       <div className="flex justify-between items-center pt-1">
-                        <span className="text-sm font-semibold text-green-700">Promedio:</span>
+                        <span className="text-sm font-semibold text-green-700">Average:</span>
                         <span className="text-sm font-semibold text-green-700">{item.avg_cur.toFixed(2)} A</span>
                       </div>
                     </div>
@@ -414,25 +403,25 @@ const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
                   <div className="bg-purple-50 p-4 rounded-xl">
                     <h3 className="text-md font-semibold text-purple-700 mb-3 flex items-center">
                       <Battery className="w-4 h-4 mr-2" />
-                      Potencia
+                      Power
                     </h3>
                     <div className="space-y-2">
                       <div className="flex justify-between items-center border-b border-purple-100 pb-1">
-                        <span className="text-sm text-gray-600">Potencia activa:</span>
+                        <span className="text-sm text-gray-600">Active power:</span>
                         <span className="text-sm font-medium">{item.total_kw.toFixed(2)} kW</span>
                       </div>
                       <div className="flex justify-between items-center border-b border-purple-100 pb-1">
-                        <span className="text-sm text-gray-600">Potencia aparente:</span>
+                        <span className="text-sm text-gray-600">Apparent power:</span>
                         <span className="text-sm font-medium">{item.total_kva.toFixed(2)} kVA</span>
                       </div>
                       <div className="flex justify-between items-center border-b border-purple-100 pb-1">
-                        <span className="text-sm text-gray-600">Factor de potencia:</span>
+                        <span className="text-sm text-gray-600">Power factor:</span>
                         <span className={`text-sm font-medium ${item.avg_pf < 0.85 ? 'text-red-600' : 'text-green-600'}`}>
                           {item.avg_pf.toFixed(2)}
                         </span>
                       </div>
                       <div className="flex justify-between items-center pt-1">
-                        <span className="text-sm font-semibold text-purple-700">Frecuencia:</span>
+                        <span className="text-sm font-semibold text-purple-700">Frequency:</span>
                         <span className="text-sm font-semibold text-purple-700">{item.freq.toFixed(2)} Hz</span>
                       </div>
                     </div>
@@ -443,18 +432,18 @@ const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
                 <div className="mt-6 bg-gray-50 p-4 rounded-xl">
                   <h3 className="text-md font-semibold text-gray-700 mb-3 flex items-center">
                     <BarChart2 className="w-4 h-4 mr-2" />
-                    Energía
+                    Energy
                   </h3>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-white p-3 rounded-lg shadow-sm">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Energía activa:</span>
+                        <span className="text-sm text-gray-600">Active energy:</span>
                         <span className="text-sm font-bold text-blue-600">{item.kwh.toFixed(2)} kWh</span>
                       </div>
                     </div>
                     <div className="bg-white p-3 rounded-lg shadow-sm">
                       <div className="flex justify-between items-center">
-                        <span className="text-sm text-gray-600">Energía aparente:</span>
+                        <span className="text-sm text-gray-600">Apparent energy:</span>
                         <span className="text-sm font-bold text-purple-600">{item.kvah.toFixed(2)} kVAh</span>
                       </div>
                     </div>
@@ -464,7 +453,7 @@ const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
                 {/* Last Updated */}
                 <div className="mt-4 flex items-center justify-end text-sm text-gray-500">
                   <Clock className="w-4 h-4 mr-2 text-gray-400" />
-                  <span>Última actualización: {formatDate(item.updated_at)}</span>
+                  <span>Last Updated: {formatDate(item.updated_at)}</span>
                 </div>
               </motion.div>
             );
