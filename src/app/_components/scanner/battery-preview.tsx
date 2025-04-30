@@ -14,6 +14,15 @@ export const BatteryPreview: React.FC<BatteryPreviewProps> = ({
 }) => {
   const { minutesToHours, formatDate } = formatUtils;
 
+  // Fungsi untuk mengurangi 7 jam dari waktu yang diberikan
+  const adjustTimeMinusSeven = (dateTime: string | number | Date) => {
+    if (!dateTime) return "";
+    
+    const date = new Date(dateTime);
+    date.setHours(date.getHours() - 7);
+    return date.toISOString(); // Mengembalikan string dalam format ISO untuk kompatibilitas dengan formatDate
+  };
+
   return (
     <div className="space-y-4">
       <div className="bg-blue-50 p-4 rounded-lg border border-blue-100">
@@ -67,7 +76,7 @@ export const BatteryPreview: React.FC<BatteryPreviewProps> = ({
             </div>
             <div className="bg-white p-3 rounded-lg border border-gray-100">
               <p className="text-xs text-gray-500 mb-1">Last Update</p>
-              <p className="font-medium text-xs">{formatDate(data.updated_at)}</p>
+              <p className="font-medium text-xs">{data.updated_at ? formatDate(adjustTimeMinusSeven(data.updated_at)) : "N/A"}</p>
             </div>
           </div>
         </div>

@@ -14,6 +14,20 @@ export const GensetPreview: React.FC<GensetPreviewProps> = ({
 }) => {
   const { formatNumber, formatDate } = formatUtils;
 
+  // Fungsi untuk mengurangi 7 jam dari waktu yang diberikan dan memformat tanggal
+  const formatDateMinusSeven = (dateTime: any) => {
+    if (!dateTime) return "N/A";
+    
+    try {
+      const date = new Date(dateTime);
+      date.setHours(date.getHours() - 7);
+      return formatDate(date.toISOString());
+    } catch (error) {
+      console.error("Error formatting date:", error);
+      return "Invalid Date";
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="bg-green-50 p-4 rounded-lg border border-green-100">
@@ -102,7 +116,7 @@ export const GensetPreview: React.FC<GensetPreviewProps> = ({
           
           <div className="bg-white p-3 rounded-lg border border-gray-100">
             <p className="text-xs text-gray-500 mb-1">Last Update</p>
-            <p className="font-medium text-xs">{formatDate(data.updated_at)}</p>
+            <p className="font-medium text-xs">{formatDateMinusSeven(data.updated_at)}</p>
           </div>
         </div>
       </div>
