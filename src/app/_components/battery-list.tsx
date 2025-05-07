@@ -161,6 +161,8 @@ const BatteryList: React.FC<BatteryListProps> = ({ batteries }) => {
     
     try {
       const date = new Date(dateString);
+      // Subtract 7 hours from the date
+      date.setHours(date.getHours() - 7);
       return new Intl.DateTimeFormat('id-ID', {
         day: '2-digit',
         month: 'short',

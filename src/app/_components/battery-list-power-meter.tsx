@@ -66,16 +66,20 @@ const PowerMeterList: React.FC<PowerMeterListProps> = ({ powerMeter }) => {
 
   // Function to format the date
   const formatDate = (dateString: string): string => {
+    if (!dateString) return 'N/A';
+    
     try {
       const date = new Date(dateString);
-      return date.toLocaleString('id-ID', {
-        year: 'numeric',
+      // Subtract 7 hours from the date
+      date.setHours(date.getHours() - 7);
+      return new Intl.DateTimeFormat('id-ID', {
+        day: '2-digit',
         month: 'short',
-        day: 'numeric',
+        year: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
-      });
-    } catch (error) {
+      }).format(date);
+    } catch {
       return 'Invalid date';
     }
   };
