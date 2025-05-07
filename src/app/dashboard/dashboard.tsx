@@ -116,7 +116,7 @@ export default function Home() {
           </div>
         </div>
         <div>
-          <h1 className="text-white text-2xl font-bold">INCOE LITHIUM</h1>
+          {/* <h1 className="text-white text-2xl font-bold">INCOE LITHIUM</h1> */}
           <p className="text-white text-sm">Welcome, {username || 'User'}</p>
         </div>
         <div className="ml-auto flex gap-4">

@@ -110,11 +110,11 @@ const openQRScanner = () => {
         <div>
           {/* Replacing text with image */}
           <div className="relative">
-            <img 
+            {/* <img 
               src="assets/incoe-connect.png" 
               alt="INCOE CONNECT" 
               className="h-auto w-auto max-h-8 max-w-full object-contain"
-            />
+            /> */}
           </div>
           <p className="text-white text-sm">Welcome, {username || 'User'}</p>
         </div>
