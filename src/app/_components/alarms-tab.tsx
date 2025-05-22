@@ -296,9 +296,23 @@ const AlarmTab: React.FC<AlarmTabProps> = ({ packageName }) => {
   };
 
   // Format date for display
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString();
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return 'N/A';
+    
+    try {
+      const date = new Date(dateString);
+      // Subtract 7 hours from the date
+      date.setHours(date.getHours() - 7);
+      return new Intl.DateTimeFormat('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch {
+      return 'Invalid date';
+    }
   };
 
   // Reset filters

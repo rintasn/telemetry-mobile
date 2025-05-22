@@ -111,12 +111,23 @@ export default function BatteryDetailsPage() {
   }, [packageName, isAuthenticated, isLoading, router]);
 
   // Format date to readable format
-  const formatDate = (dateString: string) => {
+  // Format date to local time
+  const formatDate = (dateString: string): string => {
+    if (!dateString) return 'N/A';
+    
     try {
       const date = new Date(dateString);
-      return date.toLocaleString();
-    } catch (error) {
-      return dateString;
+      // Subtract 7 hours from the date
+      date.setHours(date.getHours() - 7);
+      return new Intl.DateTimeFormat('id-ID', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch {
+      return 'Invalid date';
     }
   };
 
